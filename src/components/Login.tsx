@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Lock, Mail, ArrowRight, ShieldCheck, TreePalm } from 'lucide-react';
+import { Lock, Mail, ArrowRight, ShieldCheck, Trees } from 'lucide-react';
 import { OFFICE_AUTH_CONFIG } from '../config/auth';
 
 interface LoginProps {
@@ -44,7 +44,7 @@ export default function Login({ onLoginSuccess }: LoginProps) {
         {/* LOGO & BAŞLIK */}
         <div className="text-center mb-8">
           <div className="inline-flex p-3 bg-emerald-500/10 text-emerald-400 rounded-2xl border border-emerald-500/20 mb-3">
-            <TreePalm className="w-9 h-9" />
+            <Trees className="w-9 h-9" />
           </div>
           <h1 className="text-2xl font-black text-white tracking-wider">PALMİYE YATIRIM</h1>
           <p className="text-xs text-emerald-400 font-semibold mt-1">Yalova Gayrimenkul Portföy Paneli</p>
@@ -100,7 +100,7 @@ export default function Login({ onLoginSuccess }: LoginProps) {
 
         <div className="mt-8 pt-6 border-t border-slate-800/80 flex items-center justify-center gap-2 text-[11px] text-slate-500">
           <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
-          <span>Sadece Yetkili Ofis Hesabı (İlbey / Zahit / Ömer)</span>
+          <span>Yetkili Ofis Danışman Paneli</span>
         </div>
       </div>
     </div>
