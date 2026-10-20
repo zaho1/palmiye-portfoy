@@ -421,91 +421,116 @@ export default function App() {
         )}
       </main>
 
-      {/* İLAN DETAY MODALI */}
+     {/* İLAN DETAY MODALI (GENİŞ & PROFESYONEL 2 SÜTUNLU DÜZEN) */}
       {selectedProperty && (
-        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-2xl w-full overflow-hidden shadow-2xl max-h-[90vh] flex flex-col">
-            <div className="p-5 border-b border-slate-800 flex items-center justify-between">
-              <span className="text-xs font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 rounded-lg">
-                {selectedProperty.category}
-              </span>
+        <div className="fixed inset-0 bg-slate-950/85 backdrop-blur-md z-50 flex items-center justify-center p-4 md:p-6">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-5xl w-full overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
+            {/* Header */}
+            <div className="px-6 py-4 border-b border-slate-800/80 flex items-center justify-between bg-slate-950/50">
+              <div className="flex items-center gap-3">
+                <span className="text-xs font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-3 py-1 rounded-lg">
+                  {selectedProperty.category}
+                </span>
+                <span className="text-xs text-slate-400 font-mono">İlan No: {selectedProperty.id}</span>
+              </div>
               <button 
                 onClick={() => setSelectedProperty(null)}
-                className="p-1.5 text-slate-400 hover:text-white bg-slate-800 rounded-lg transition"
+                className="p-2 text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 rounded-xl transition"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="p-6 overflow-y-auto space-y-6">
-              <img 
-                src={selectedProperty.imageUrl} 
-                alt={selectedProperty.title} 
-                onError={(e) => { (e.target as HTMLImageElement).src = FALLBACK_IMAGE; }}
-                className="w-full h-64 object-cover rounded-xl border border-slate-800 bg-slate-950"
-              />
+            {/* Body - 2 Sütun */}
+            <div className="p-6 overflow-y-auto grid grid-cols-1 lg:grid-cols-12 gap-6">
+              {/* Sol Sütun: Görsel ve Teknik Bilgiler */}
+              <div className="lg:col-span-7 space-y-4">
+                <div className="relative h-72 lg:h-80 rounded-2xl overflow-hidden border border-slate-800 bg-slate-950 group">
+                  <img 
+                    src={selectedProperty.imageUrl} 
+                    alt={selectedProperty.title} 
+                    onError={(e) => { (e.target as HTMLImageElement).src = FALLBACK_IMAGE; }}
+                    className="w-full h-full object-cover"
+                  />
+                </div>
 
-              <div>
-                <p className="text-2xl font-bold text-emerald-400 mb-2">{selectedProperty.price}</p>
-                <h2 className="text-xl font-bold text-white mb-4">{selectedProperty.title}</h2>
-
-                <div className="flex flex-wrap gap-3 mb-6">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                   {selectedProperty.size && (
-                    <div className="bg-slate-800/80 border border-slate-700/80 px-3 py-1.5 rounded-lg text-xs font-medium text-slate-300">
-                      m²: <span className="text-white font-bold">{selectedProperty.size}</span>
+                    <div className="bg-slate-950 p-3 rounded-xl border border-slate-800/80">
+                      <p className="text-[11px] text-slate-500 font-medium">Metrekare</p>
+                      <p className="text-sm font-bold text-slate-200 mt-0.5">{selectedProperty.size}</p>
                     </div>
                   )}
                   {selectedProperty.imarStatus && (
-                    <div className="bg-slate-800/80 border border-slate-700/80 px-3 py-1.5 rounded-lg text-xs font-medium text-slate-300">
-                      İmar Durumu: <span className="text-white font-bold">{selectedProperty.imarStatus}</span>
+                    <div className="bg-slate-950 p-3 rounded-xl border border-slate-800/80">
+                      <p className="text-[11px] text-slate-500 font-medium">İmar Durumu</p>
+                      <p className="text-sm font-bold text-slate-200 mt-0.5">{selectedProperty.imarStatus}</p>
                     </div>
                   )}
                   {showPrivateInfo && selectedProperty.adaParsel && (
-                    <div className="bg-amber-400/10 border border-amber-400/20 px-3 py-1.5 rounded-lg text-xs font-medium text-amber-400 flex items-center gap-1.5">
-                      <Shield className="w-3.5 h-3.5" />
-                      Ada/Parsel: {selectedProperty.adaParsel}
+                    <div className="bg-amber-400/5 p-3 rounded-xl border border-amber-400/20 col-span-2 sm:col-span-1">
+                      <p className="text-[11px] text-amber-400/80 font-medium flex items-center gap-1">
+                        <Shield className="w-3 h-3" /> Ada/Parsel
+                      </p>
+                      <p className="text-sm font-bold text-amber-400 mt-0.5">{selectedProperty.adaParsel}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Sağ Sütun: Fiyat, Başlık, Açıklama ve İletişim */}
+              <div className="lg:col-span-5 flex flex-col justify-between space-y-4">
+                <div className="space-y-4">
+                  <div>
+                    <p className="text-3xl font-black text-emerald-400 mb-1">{selectedProperty.price}</p>
+                    <h2 className="text-lg font-bold text-white leading-snug">{selectedProperty.title}</h2>
+                  </div>
+
+                  {selectedProperty.description && (
+                    <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800/80 max-h-48 overflow-y-auto">
+                      <h4 className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">İlan Açıklaması</h4>
+                      <p className="text-xs text-slate-300 whitespace-pre-line leading-relaxed">
+                        {selectedProperty.description}
+                      </p>
                     </div>
                   )}
                 </div>
 
-                {selectedProperty.description && (
-                  <div className="bg-slate-950 p-4 rounded-xl border border-slate-800/80 mb-6">
-                    <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Açıklama</h4>
-                    <p className="text-sm text-slate-300 whitespace-pre-line leading-relaxed">
-                      {selectedProperty.description}
-                    </p>
+                <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800/80 space-y-3 mt-auto">
+                  <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Sorumlu Portföy Danışmanı</p>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-bold text-slate-100">{selectedProperty.agentName}</p>
+                      <p className="text-xs text-slate-400">{selectedProperty.agentPhone}</p>
+                    </div>
                   </div>
-                )}
-              </div>
-            </div>
 
-            <div className="p-5 border-t border-slate-800 bg-slate-950 flex flex-wrap items-center justify-between gap-4">
-              <div className="text-xs">
-                <p className="text-slate-400 font-medium">{selectedProperty.agentName}</p>
-                <p className="text-slate-500">{selectedProperty.agentPhone}</p>
-              </div>
+                  <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-800/80">
+                    {selectedProperty.sahibindenUrl ? (
+                      <a 
+                        href={selectedProperty.sahibindenUrl} 
+                        target="_blank" 
+                        rel="noreferrer"
+                        className="flex items-center justify-center gap-1.5 py-2.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/20 rounded-xl text-xs font-semibold transition"
+                      >
+                        <span>Sahibinden</span>
+                        <ExternalLink className="w-3.5 h-3.5" />
+                      </a>
+                    ) : (
+                      <div className="text-center py-2.5 text-[11px] text-slate-600 bg-slate-900 rounded-xl font-medium">Link Yok</div>
+                    )}
 
-              <div className="flex items-center gap-3">
-                {selectedProperty.sahibindenUrl && (
-                  <a 
-                    href={selectedProperty.sahibindenUrl} 
-                    target="_blank" 
-                    rel="noreferrer"
-                    className="flex items-center gap-2 px-4 py-2 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/20 rounded-xl text-xs font-medium transition"
-                  >
-                    <span>Sahibinden Linki</span>
-                    <ExternalLink className="w-3.5 h-3.5" />
-                  </a>
-                )}
-                <a 
-                  href={getSmartWhatsappUrl(selectedProperty)} 
-                  target="_blank" 
-                  rel="noreferrer"
-                  className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white hover:bg-emerald-500 rounded-xl text-xs font-medium shadow-lg shadow-emerald-900/20 transition"
-                >
-                  <MessageCircle className="w-4 h-4" />
-                  <span>WhatsApp İle Sor</span>
-                </a>
+                    <a 
+                      href={getSmartWhatsappUrl(selectedProperty)} 
+                      target="_blank" 
+                      rel="noreferrer"
+                      className="flex items-center justify-center gap-1.5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-semibold shadow-lg shadow-emerald-900/20 transition"
+                    >
+                      <MessageCircle className="w-4 h-4" />
+                      <span>WhatsApp</span>
+                    </a>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
