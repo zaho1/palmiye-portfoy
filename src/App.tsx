@@ -18,7 +18,6 @@ import {
   Globe,
   Trees,
   Filter,
-  MapPin,
   KeyRound
 } from 'lucide-react';
 import type { Property } from './types';
