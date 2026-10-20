@@ -280,7 +280,7 @@ export default function App() {
 
         <header className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 mb-8">
           <div>
-            <h2 className="text-2xl font-bold text-white">Palmiye Danışman Paneli</h2>
+            <h2 className="text-2xl font-bold text-white">Palmiye Yatırım | Danışman Paneli</h2>
             <p className="text-sm text-slate-400">Aktif filtrelenen {filteredProperties.length} gayrimenkul</p>
           </div>
 
