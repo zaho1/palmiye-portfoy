@@ -11,13 +11,15 @@ import {
   MessageCircle,
   X,
   RefreshCw,
-  TrendingUp,
   Tag,
   Home,
   LogOut,
   UserCheck,
   Globe,
-  Trees
+  Trees,
+  Filter,
+  MapPin,
+  KeyRound
 } from 'lucide-react';
 import type { Property } from './types';
 import Login from './components/Login';
@@ -26,7 +28,6 @@ const SHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTrZ9plOA
 const FALLBACK_IMAGE = 'https://images.unsplash.com/photo-1560518883-ce09059eeffa?auto=format&fit=crop&w=800&q=80';
 
 export default function App() {
-  // OTURUM STATE'I (LOCALSTORAGE)
   const [currentUser, setCurrentUser] = useState<string | null>(() => {
     return localStorage.getItem('palmiye_user');
   });
@@ -91,7 +92,6 @@ export default function App() {
     }
   }, [currentUser]);
 
-  // EĞER OTURUM AÇILMADIYSA LOGIN EKRANINI GÖSTER
   if (!currentUser) {
     return <Login onLoginSuccess={handleLoginSuccess} />;
   }
@@ -117,7 +117,6 @@ export default function App() {
   });
 
   const totalListings = properties.length;
-  const totalValue = properties.reduce((acc, curr) => acc + parseNumericPrice(curr.price), 0);
   const kiralikCount = properties.filter(i => i.category.toLowerCase().includes('kiralık')).length;
   const satilikCount = properties.filter(i => i.category.toLowerCase().includes('satılık')).length;
 
@@ -134,10 +133,11 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-slate-900 text-slate-100 flex">
-      {/* SOL SIDEBAR (PALMİYE YATIRIM TEMASI) */}
+      {/* SOL SIDEBAR */}
       <aside className="w-64 bg-slate-950 border-r border-slate-800 p-6 flex flex-col justify-between hidden md:flex shrink-0">
-        <div>
-          <div className="flex items-center gap-3 mb-8">
+        <div className="space-y-6">
+          {/* Marka / Logo */}
+          <div className="flex items-center gap-3">
             <div className="p-2.5 bg-emerald-600 text-white rounded-xl shadow-lg shadow-emerald-900/30">
               <Trees className="w-7 h-7" />
             </div>
@@ -147,31 +147,71 @@ export default function App() {
             </div>
           </div>
 
-          <nav className="space-y-3">
-            <button className="w-full flex items-center gap-3 px-4 py-3 bg-emerald-600 text-white rounded-xl font-bold shadow-lg shadow-emerald-900/20 transition">
-              <Building2 className="w-5 h-5" />
-              <span>Portföy Listesi</span>
-            </button>
+          {/* Menü & Hızlı Filtreler */}
+          <nav className="space-y-4">
+            <div>
+              <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2 px-1">Ana Menü</p>
+              <button 
+                onClick={() => setSelectedType('Hepsi')}
+                className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs font-semibold transition ${
+                  selectedType === 'Hepsi' 
+                    ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-900/20' 
+                    : 'bg-slate-900/50 text-slate-400 hover:text-white hover:bg-slate-900'
+                }`}
+              >
+                <Building2 className="w-4 h-4" />
+                <span>Tüm Portföy ({totalListings})</span>
+              </button>
+            </div>
 
-            {/* Resmi Web Sitesi Bağlantısı */}
-            <a 
-              href="https://palmiyeyatirim.com/tr" 
-              target="_blank" 
-              rel="noreferrer"
-              className="w-full flex items-center justify-between px-4 py-3 bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 hover:text-white rounded-xl text-xs font-semibold transition"
-            >
-              <div className="flex items-center gap-2.5">
-                <Globe className="w-4 h-4 text-emerald-400" />
-                <span>Web Sitesi</span>
+            {/* Hızlı Kategori Süzgeçleri */}
+            <div>
+              <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2 px-1 flex items-center gap-1">
+                <Filter className="w-3 h-3 text-emerald-400" />
+                <span>Hızlı Filtrele</span>
+              </p>
+              <div className="space-y-1">
+                {['Satılık', 'Kiralık', 'Daire', 'Arsa'].map((cat) => (
+                  <button
+                    key={cat}
+                    onClick={() => setSelectedType(selectedType === cat ? 'Hepsi' : cat)}
+                    className={`w-full flex items-center justify-between px-3.5 py-2 rounded-lg text-xs font-medium transition ${
+                      selectedType === cat 
+                        ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' 
+                        : 'text-slate-400 hover:text-white hover:bg-slate-900'
+                    }`}
+                  >
+                    <span>{cat}</span>
+                    <span className="text-[10px] bg-slate-900 px-2 py-0.5 rounded-md text-slate-500 font-mono">
+                      {properties.filter(p => p.category.toLowerCase().includes(cat.toLowerCase())).length}
+                    </span>
+                  </button>
+                ))}
               </div>
-              <ExternalLink className="w-3.5 h-3.5 text-slate-500" />
-            </a>
+            </div>
+
+            {/* Dış Bağlantılar */}
+            <div>
+              <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2 px-1">Bağlantılar</p>
+              <a 
+                href="https://palmiyeyatirim.com/tr" 
+                target="_blank" 
+                rel="noreferrer"
+                className="w-full flex items-center justify-between px-3.5 py-2.5 bg-slate-900 hover:bg-slate-800 border border-slate-800/80 text-slate-300 hover:text-white rounded-xl text-xs font-medium transition"
+              >
+                <div className="flex items-center gap-2">
+                  <Globe className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>Resmi Web Sitesi</span>
+                </div>
+                <ExternalLink className="w-3 h-3 text-slate-500" />
+              </a>
+            </div>
           </nav>
         </div>
 
-        {/* Kullanıcı Profili, Gizlilik & Çıkış */}
-        <div className="space-y-3">
-          <div className="p-3 bg-slate-900 border border-slate-800 rounded-xl flex items-center justify-between">
+        {/* Kullanıcı Profili, Ofis Telefonu & Çıkış */}
+        <div className="space-y-3 pt-4 border-t border-slate-800/80">
+          <div className="p-3 bg-slate-900 border border-slate-800/80 rounded-xl flex items-center justify-between">
             <div className="flex items-center gap-2 overflow-hidden">
               <UserCheck className="w-4 h-4 text-emerald-400 shrink-0" />
               <span className="text-xs font-medium text-slate-300 truncate">{currentUser}</span>
@@ -187,15 +227,15 @@ export default function App() {
 
           <button 
             onClick={fetchProperties}
-            className="w-full flex items-center justify-center gap-2 py-2.5 bg-slate-900 hover:bg-slate-800 border border-slate-800 rounded-xl text-xs font-medium text-slate-300 transition"
+            className="w-full flex items-center justify-center gap-2 py-2 bg-slate-900 hover:bg-slate-800 border border-slate-800 rounded-xl text-xs font-medium text-slate-300 transition"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-emerald-400' : ''}`} />
             <span>Verileri Yenile</span>
           </button>
 
-          <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs text-slate-400 font-medium">Ada/Parsel Göster</span>
+          <div className="bg-slate-900 border border-slate-800 p-3 rounded-xl">
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-xs text-slate-400 font-medium">Ada/Parsel Modu</span>
               <button 
                 onClick={() => setShowPrivateInfo(!showPrivateInfo)}
                 className="text-emerald-400 hover:text-emerald-300"
@@ -203,8 +243,8 @@ export default function App() {
                 {showPrivateInfo ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
               </button>
             </div>
-            <p className="text-[11px] text-slate-500">
-              {showPrivateInfo ? 'Özel detaylar görünür durumda.' : 'Gizlendi.'}
+            <p className="text-[10px] text-slate-500">
+              {showPrivateInfo ? 'Detaylar açık (Ofis İçi)' : 'Müşteri Sunum Modu'}
             </p>
           </div>
         </div>
@@ -212,42 +252,44 @@ export default function App() {
 
       {/* ANA İÇERİK ALANI */}
       <main className="flex-1 p-6 md:p-8 overflow-y-auto">
+        {/* METRİK KARTLARI (Sadece Anlık Sayılar) */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
           <div className="bg-slate-950 border border-slate-800/80 rounded-2xl p-4 flex items-center gap-4">
             <div className="p-3 bg-emerald-500/10 text-emerald-400 rounded-xl">
               <Home className="w-6 h-6" />
             </div>
             <div>
-              <p className="text-xs text-slate-400">Toplam Portföy</p>
+              <p className="text-xs text-slate-400 font-medium">Toplam Portföy</p>
               <h3 className="text-xl font-bold text-white">{totalListings} İlan</h3>
             </div>
           </div>
 
           <div className="bg-slate-950 border border-slate-800/80 rounded-2xl p-4 flex items-center gap-4">
             <div className="p-3 bg-blue-500/10 text-blue-400 rounded-xl">
-              <Tag className="w-6 h-6" />
+              <KeyRound className="w-6 h-6" />
             </div>
             <div>
-              <p className="text-xs text-slate-400">Kiralık / Satılık</p>
-              <h3 className="text-xl font-bold text-white">{kiralikCount} Kiralık - {satilikCount} Satılık</h3>
+              <p className="text-xs text-slate-400 font-medium">Kiralık İlan Sayısı</p>
+              <h3 className="text-xl font-bold text-white">{kiralikCount} Adet</h3>
             </div>
           </div>
 
           <div className="bg-slate-950 border border-slate-800/80 rounded-2xl p-4 flex items-center gap-4">
             <div className="p-3 bg-amber-500/10 text-amber-400 rounded-xl">
-              <TrendingUp className="w-6 h-6" />
+              <Tag className="w-6 h-6" />
             </div>
             <div>
-              <p className="text-xs text-slate-400">Toplam Portföy Hacmi</p>
-              <h3 className="text-xl font-bold text-white">{totalValue.toLocaleString('tr-TR')} ₺</h3>
+              <p className="text-xs text-slate-400 font-medium">Satılık İlan Sayısı</p>
+              <h3 className="text-xl font-bold text-white">{satilikCount} Adet</h3>
             </div>
           </div>
         </div>
 
+        {/* ÜST ARAMA VE FİLTRE BAR */}
         <header className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 mb-8">
           <div>
-            <h2 className="text-2xl font-bold text-white">Portföy Yönetim Paneli</h2>
-            <p className="text-sm text-slate-400">Filtrelenen {filteredProperties.length} gayrimenkul listeleniyor</p>
+            <h2 className="text-2xl font-bold text-white">Palmiye Danışman Paneli</h2>
+            <p className="text-sm text-slate-400">Aktif filtrelenen {filteredProperties.length} gayrimenkul</p>
           </div>
 
           <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto">
