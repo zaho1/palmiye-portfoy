@@ -1,8 +1,12 @@
 // Ofis Yetkili Danışman Listesi ve Şifre Yönetimi
 export const OFFICE_AUTH_CONFIG = {
-  // Ortak Ofis Şifresi veya Kişisel Şifreler
-  defaultPassword: "Palmiye2026!", // İstediğin zaman buradan değiştirebilirsin
+  // Ortak Ofis Şifresi
+  defaultPassword: "Palmiye2026!",
   
-  // Yetkili Ofis E-postaları (İster liste kontrolü yaparsın ister genel e-posta kabul eder)
-  allowedDomains: ["palmiyeyatirim.com", "gmail.com"], 
+  // Sadece Yetkili 3 Özel Hesap
+  allowedUsers: [
+    { email: "ilbey@palmiyeyatirim.com", name: "İlbey Faruk Nergiz" },
+    { email: "zahit@palmiyeyatirim.com", name: "Nureddin Zahit Arıduru" },
+    { email: "omer@palmiyeyatirim.com", name: "Ömer Nergiz" }
+  ]
 };

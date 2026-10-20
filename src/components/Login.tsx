@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Building2, Lock, Mail, ArrowRight, ShieldCheck } from 'lucide-react';
+import { Lock, Mail, ArrowRight, ShieldCheck, TreePalm } from 'lucide-react';
 import { OFFICE_AUTH_CONFIG } from '../config/auth';
 
 interface LoginProps {
@@ -15,14 +15,21 @@ export default function Login({ onLoginSuccess }: LoginProps) {
     e.preventDefault();
     setError('');
 
-    if (!email || !password) {
-      setError('Lütfen e-posta ve şifrenizi giriniz.');
+    const cleanEmail = email.trim().toLowerCase();
+
+    // 1. Liste Kontrolü
+    const isUserAllowed = OFFICE_AUTH_CONFIG.allowedUsers.some(
+      u => u.email.toLowerCase() === cleanEmail
+    );
+
+    if (!isUserAllowed) {
+      setError('Bu e-posta adresi yetkili kullanıcı listesinde bulunamadı!');
       return;
     }
 
-    // Şifre Kontrolü
+    // 2. Şifre Kontrolü
     if (password === OFFICE_AUTH_CONFIG.defaultPassword) {
-      onLoginSuccess(email);
+      onLoginSuccess(cleanEmail);
     } else {
       setError('Hatalı şifre! Lütfen ofis yöneticisiyle iletişime geçin.');
     }
@@ -31,16 +38,16 @@ export default function Login({ onLoginSuccess }: LoginProps) {
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center p-4">
       <div className="max-w-md w-full bg-slate-900 border border-slate-800 rounded-3xl p-8 shadow-2xl relative overflow-hidden">
-        {/* Arka Plan Glow Efekti */}
-        <div className="absolute -top-20 -right-20 w-40 h-40 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none"></div>
+        {/* Tabela Yeşil Glow Efekti */}
+        <div className="absolute -top-20 -right-20 w-40 h-40 bg-emerald-500/15 rounded-full blur-3xl pointer-events-none"></div>
 
         {/* LOGO & BAŞLIK */}
         <div className="text-center mb-8">
-          <div className="inline-flex p-3 bg-emerald-500/10 text-emerald-400 rounded-2xl border border-emerald-500/20 mb-4">
-            <Building2 className="w-8 h-8" />
+          <div className="inline-flex p-3 bg-emerald-500/10 text-emerald-400 rounded-2xl border border-emerald-500/20 mb-3">
+            <TreePalm className="w-9 h-9" />
           </div>
-          <h1 className="text-2xl font-bold text-white tracking-wide">PALMİYE YATIRIM</h1>
-          <p className="text-xs text-emerald-400 font-medium mt-1">Ekip Portföy Yönetim Paneli</p>
+          <h1 className="text-2xl font-black text-white tracking-wider">PALMİYE YATIRIM</h1>
+          <p className="text-xs text-emerald-400 font-semibold mt-1">Yalova Gayrimenkul Portföy Paneli</p>
         </div>
 
         {/* HATA MESAJI */}
@@ -84,7 +91,7 @@ export default function Login({ onLoginSuccess }: LoginProps) {
 
           <button 
             type="submit"
-            className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-semibold shadow-lg shadow-emerald-900/30 transition flex items-center justify-center gap-2 mt-6 text-sm"
+            className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold shadow-lg shadow-emerald-900/30 transition flex items-center justify-center gap-2 mt-6 text-sm tracking-wide"
           >
             <span>Panele Giriş Yap</span>
             <ArrowRight className="w-4 h-4" />
@@ -93,7 +100,7 @@ export default function Login({ onLoginSuccess }: LoginProps) {
 
         <div className="mt-8 pt-6 border-t border-slate-800/80 flex items-center justify-center gap-2 text-[11px] text-slate-500">
           <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
-          <span>Sadece yetkili Palmiye Yatırım danışmanları içindir.</span>
+          <span>Sadece Yetkili Ofis Hesabı (İlbey / Zahit / Ömer)</span>
         </div>
       </div>
     </div>

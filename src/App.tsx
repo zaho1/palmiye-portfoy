@@ -15,7 +15,9 @@ import {
   Tag,
   Home,
   LogOut,
-  UserCheck
+  UserCheck,
+  Globe,
+  Trees
 } from 'lucide-react';
 import type { Property } from './types';
 import Login from './components/Login';
@@ -132,24 +134,38 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-slate-900 text-slate-100 flex">
-      {/* SOL SIDEBAR */}
+      {/* SOL SIDEBAR (PALMİYE YATIRIM TEMASI) */}
       <aside className="w-64 bg-slate-950 border-r border-slate-800 p-6 flex flex-col justify-between hidden md:flex shrink-0">
         <div>
           <div className="flex items-center gap-3 mb-8">
-            <div className="p-2 bg-emerald-500/10 text-emerald-400 rounded-xl border border-emerald-500/20">
-              <Building2 className="w-7 h-7" />
+            <div className="p-2.5 bg-emerald-600 text-white rounded-xl shadow-lg shadow-emerald-900/30">
+              <Trees className="w-7 h-7" />
             </div>
             <div>
-              <h1 className="font-bold text-lg text-white tracking-wide">PALMİYE</h1>
-              <p className="text-xs text-emerald-400 font-medium">Yatırım & Portföy</p>
+              <h1 className="font-black text-lg text-white tracking-wider">PALMİYE</h1>
+              <p className="text-xs text-emerald-400 font-bold tracking-wide">YATIRIM & PORTFÖY</p>
             </div>
           </div>
 
-          <nav className="space-y-2">
-            <button className="w-full flex items-center gap-3 px-4 py-3 bg-emerald-600 text-white rounded-xl font-medium shadow-lg shadow-emerald-900/20 transition">
+          <nav className="space-y-3">
+            <button className="w-full flex items-center gap-3 px-4 py-3 bg-emerald-600 text-white rounded-xl font-bold shadow-lg shadow-emerald-900/20 transition">
               <Building2 className="w-5 h-5" />
               <span>Portföy Listesi</span>
             </button>
+
+            {/* Resmi Web Sitesi Bağlantısı */}
+            <a 
+              href="https://palmiyeyatirim.com/tr" 
+              target="_blank" 
+              rel="noreferrer"
+              className="w-full flex items-center justify-between px-4 py-3 bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 hover:text-white rounded-xl text-xs font-semibold transition"
+            >
+              <div className="flex items-center gap-2.5">
+                <Globe className="w-4 h-4 text-emerald-400" />
+                <span>Web Sitesi</span>
+              </div>
+              <ExternalLink className="w-3.5 h-3.5 text-slate-500" />
+            </a>
           </nav>
         </div>
 
@@ -158,7 +174,7 @@ export default function App() {
           <div className="p-3 bg-slate-900 border border-slate-800 rounded-xl flex items-center justify-between">
             <div className="flex items-center gap-2 overflow-hidden">
               <UserCheck className="w-4 h-4 text-emerald-400 shrink-0" />
-              <span className="text-xs text-slate-300 truncate">{currentUser}</span>
+              <span className="text-xs font-medium text-slate-300 truncate">{currentUser}</span>
             </div>
             <button 
               onClick={handleLogout}
