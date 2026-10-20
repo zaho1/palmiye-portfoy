@@ -135,7 +135,6 @@ export default function App() {
       {/* SOL SIDEBAR */}
       <aside className="w-64 bg-slate-950 border-r border-slate-800 p-6 flex flex-col justify-between hidden md:flex shrink-0">
         <div className="space-y-6">
-          {/* Marka / Logo */}
           <div className="flex items-center gap-3">
             <div className="p-2.5 bg-emerald-600 text-white rounded-xl shadow-lg shadow-emerald-900/30">
               <Trees className="w-7 h-7" />
@@ -146,7 +145,6 @@ export default function App() {
             </div>
           </div>
 
-          {/* Menü & Hızlı Filtreler */}
           <nav className="space-y-4">
             <div>
               <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2 px-1">Ana Menü</p>
@@ -163,7 +161,6 @@ export default function App() {
               </button>
             </div>
 
-            {/* Hızlı Kategori Süzgeçleri */}
             <div>
               <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2 px-1 flex items-center gap-1">
                 <Filter className="w-3 h-3 text-emerald-400" />
@@ -189,7 +186,6 @@ export default function App() {
               </div>
             </div>
 
-            {/* Dış Bağlantılar */}
             <div>
               <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2 px-1">Bağlantılar</p>
               <a 
@@ -208,7 +204,6 @@ export default function App() {
           </nav>
         </div>
 
-        {/* Kullanıcı Profili, Ofis Telefonu & Çıkış */}
         <div className="space-y-3 pt-4 border-t border-slate-800/80">
           <div className="p-3 bg-slate-900 border border-slate-800/80 rounded-xl flex items-center justify-between">
             <div className="flex items-center gap-2 overflow-hidden">
@@ -251,7 +246,6 @@ export default function App() {
 
       {/* ANA İÇERİK ALANI */}
       <main className="flex-1 p-6 md:p-8 overflow-y-auto">
-        {/* METRİK KARTLARI (Sadece Anlık Sayılar) */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
           <div className="bg-slate-950 border border-slate-800/80 rounded-2xl p-4 flex items-center gap-4">
             <div className="p-3 bg-emerald-500/10 text-emerald-400 rounded-xl">
@@ -284,7 +278,6 @@ export default function App() {
           </div>
         </div>
 
-        {/* ÜST ARAMA VE FİLTRE BAR */}
         <header className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 mb-8">
           <div>
             <h2 className="text-2xl font-bold text-white">Palmiye Danışman Paneli</h2>
@@ -406,7 +399,7 @@ export default function App() {
                     </a>
                     {item.agentPhone && (
                       <a 
-                        href={`tel:${item.agentPhone}`} 
+                        href={`tel:${item.agentPhone.replace(/[^0-9+]/g, '')}`} 
                         className="p-2 bg-slate-800 hover:bg-emerald-600 text-slate-300 hover:text-white rounded-lg transition"
                         title="Ara"
                       >
@@ -421,11 +414,10 @@ export default function App() {
         )}
       </main>
 
-     {/* İLAN DETAY MODALI (GENİŞ & PROFESYONEL 2 SÜTUNLU DÜZEN) */}
+      {/* İLAN DETAY MODALI (GENİŞ & PROFESYONEL 2 SÜTUNLU DÜZEN) */}
       {selectedProperty && (
         <div className="fixed inset-0 bg-slate-950/85 backdrop-blur-md z-50 flex items-center justify-center p-4 md:p-6">
           <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-5xl w-full overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
-            {/* Header */}
             <div className="px-6 py-4 border-b border-slate-800/80 flex items-center justify-between bg-slate-950/50">
               <div className="flex items-center gap-3">
                 <span className="text-xs font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-3 py-1 rounded-lg">
@@ -441,9 +433,7 @@ export default function App() {
               </button>
             </div>
 
-            {/* Body - 2 Sütun */}
             <div className="p-6 overflow-y-auto grid grid-cols-1 lg:grid-cols-12 gap-6">
-              {/* Sol Sütun: Görsel ve Teknik Bilgiler */}
               <div className="lg:col-span-7 space-y-4">
                 <div className="relative h-72 lg:h-80 rounded-2xl overflow-hidden border border-slate-800 bg-slate-950 group">
                   <img 
@@ -478,7 +468,6 @@ export default function App() {
                 </div>
               </div>
 
-              {/* Sağ Sütun: Fiyat, Başlık, Açıklama ve İletişim */}
               <div className="lg:col-span-5 flex flex-col justify-between space-y-4">
                 <div className="space-y-4">
                   <div>
@@ -505,13 +494,28 @@ export default function App() {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-800/80">
+                  <div className="grid grid-cols-3 gap-2 pt-2 border-t border-slate-800/80">
+                    {/* Doğrudan Arama Butonu */}
+                    {selectedProperty.agentPhone ? (
+                      <a 
+                        href={`tel:${selectedProperty.agentPhone.replace(/[^0-9+]/g, '')}`} 
+                        className="flex items-center justify-center gap-1.5 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-semibold transition"
+                        title="Hemen Ara"
+                      >
+                        <Phone className="w-3.5 h-3.5 text-emerald-400" />
+                        <span>Ara</span>
+                      </a>
+                    ) : (
+                      <div className="text-center py-2.5 text-[11px] text-slate-600 bg-slate-900 rounded-xl font-medium">No Yok</div>
+                    )}
+
+                    {/* Sahibinden Linki */}
                     {selectedProperty.sahibindenUrl ? (
                       <a 
                         href={selectedProperty.sahibindenUrl} 
                         target="_blank" 
                         rel="noreferrer"
-                        className="flex items-center justify-center gap-1.5 py-2.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/20 rounded-xl text-xs font-semibold transition"
+                        className="flex items-center justify-center gap-1 py-2.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/20 rounded-xl text-xs font-semibold transition"
                       >
                         <span>Sahibinden</span>
                         <ExternalLink className="w-3.5 h-3.5" />
@@ -520,13 +524,14 @@ export default function App() {
                       <div className="text-center py-2.5 text-[11px] text-slate-600 bg-slate-900 rounded-xl font-medium">Link Yok</div>
                     )}
 
+                    {/* WhatsApp Butonu */}
                     <a 
                       href={getSmartWhatsappUrl(selectedProperty)} 
                       target="_blank" 
                       rel="noreferrer"
                       className="flex items-center justify-center gap-1.5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-semibold shadow-lg shadow-emerald-900/20 transition"
                     >
-                      <MessageCircle className="w-4 h-4" />
+                      <MessageCircle className="w-3.5 h-3.5" />
                       <span>WhatsApp</span>
                     </a>
                   </div>
