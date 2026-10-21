@@ -149,7 +149,7 @@ export default function App() {
 
     // Google Sheets'e de güncelle
     try {
-      const SHEET_API_URL = 'https://script.google.com/macros/s/AKfycbxZ_5kZ_7kZ_7kZ_7kZ_7kZ_7kZ_7kZ/exec';
+      const SHEET_API_URL = 'https://script.google.com/macros/s/AKfycbxFvl2PyF2bDO5Lj6ZR1zingL8P25CTYPxIyJVZNsq6uGmRoN-IYlSW2e7aLviUs6is/exec';
 
       await fetch(SHEET_API_URL, {
         method: 'POST',
@@ -181,7 +181,7 @@ export default function App() {
 
     // Google Sheets'e de güncelle
     try {
-      const SHEET_API_URL = 'https://script.google.com/macros/s/AKfycbxZ_5kZ_7kZ_7kZ_7kZ_7kZ_7kZ_7kZ/exec';
+      const SHEET_API_URL = 'https://script.google.com/macros/s/AKfycbxFvl2PyF2bDO5Lj6ZR1zingL8P25CTYPxIyJVZNsq6uGmRoN-IYlSW2e7aLviUs6is/exec';
 
       await fetch(SHEET_API_URL, {
         method: 'POST',
@@ -754,7 +754,7 @@ function AddListingForm({ onSuccess, onCancel }: { onSuccess: () => void; onCanc
     setSubmitting(true);
 
     try {
-      const SHEET_API_URL = 'https://script.google.com/macros/s/AKfycbxZ_5kZ_7kZ_7kZ_7kZ_7kZ_7kZ_7kZ/exec';
+      const SHEET_API_URL = 'https://script.google.com/macros/s/AKfycbxFvl2PyF2bDO5Lj6ZR1zingL8P25CTYPxIyJVZNsq6uGmRoN-IYlSW2e7aLviUs6is/exec';
 
       const response = await fetch(SHEET_API_URL, {
         method: 'POST',
