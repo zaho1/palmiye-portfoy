@@ -7,6 +7,7 @@ export interface Property {
   size?: string | number;
   description?: string;
   imageUrl?: string;
+  images?: string[];
   sahibindenUrl?: string;
   adaParsel?: string;
   agentName: string;

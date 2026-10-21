@@ -43,6 +43,7 @@ export default function App() {
   const [selectedProperty, setSelectedProperty] = useState<Property | null>(null);
   const [showAddListingModal, setShowAddListingModal] = useState<boolean>(false);
   const [activeTab, setActiveTab] = useState<'active' | 'sold'>('active');
+  const [currentImageIndex, setCurrentImageIndex] = useState<number>(0);
 
   const [minPrice, setMinPrice] = useState<string>('');
   const [maxPrice, setMaxPrice] = useState<string>('');
@@ -79,6 +80,7 @@ export default function App() {
             size: row['m²'] || '',
             description: row['Açıklama'] || '',
             imageUrl: firstImage,
+            images: images.length > 0 ? images : undefined,
             sahibindenUrl: row['Sahibinden Linki'] || '',
             adaParsel: row['Ada/Parsel'] || '',
             agentName: row['Danışman Bilgileri'] || 'Palmiye Danışmanı',
@@ -468,7 +470,10 @@ export default function App() {
                     ? 'border-amber-500/30 opacity-70 hover:opacity-100'
                     : 'border-slate-800/80 hover:border-slate-700'
                 }`}
-                onClick={() => setSelectedProperty(item)}
+                onClick={() => {
+                  setSelectedProperty(item);
+                  setCurrentImageIndex(0);
+                }}
               >
                 <div>
                   <div className="relative h-48 overflow-hidden bg-slate-900">
@@ -485,6 +490,11 @@ export default function App() {
                       {item.size && (
                         <span className="bg-slate-900/80 backdrop-blur-md border border-slate-700 text-slate-300 px-2.5 py-1 rounded-lg text-xs font-medium">
                           {item.size}
+                        </span>
+                      )}
+                      {item.images && item.images.length > 1 && (
+                        <span className="bg-blue-500/90 text-white px-2.5 py-1 rounded-lg text-xs font-semibold">
+                          {item.images.length} Görsel
                         </span>
                       )}
                       {item.status === 'Satıldı' && (
@@ -598,12 +608,50 @@ export default function App() {
             <div className="p-6 overflow-y-auto grid grid-cols-1 lg:grid-cols-12 gap-6">
               <div className="lg:col-span-7 space-y-4">
                 <div className="relative h-72 lg:h-80 rounded-2xl overflow-hidden border border-slate-800 bg-slate-950 group">
-                  <img 
-                    src={selectedProperty.imageUrl} 
-                    alt={selectedProperty.title} 
-                    onError={(e) => { (e.target as HTMLImageElement).src = FALLBACK_IMAGE; }}
-                    className="w-full h-full object-cover"
-                  />
+                  {selectedProperty.images && selectedProperty.images.length > 1 ? (
+                    <>
+                      <img
+                        src={selectedProperty.images[currentImageIndex]}
+                        alt={`${selectedProperty.title} - Görsel ${currentImageIndex + 1}`}
+                        onError={(e) => { (e.target as HTMLImageElement).src = FALLBACK_IMAGE; }}
+                        className="w-full h-full object-cover"
+                      />
+                      {selectedProperty.images.length > 1 && (
+                        <>
+                          <button
+                            onClick={() => setCurrentImageIndex((prev) => (prev === 0 ? selectedProperty.images!.length - 1 : prev - 1))}
+                            className="absolute left-2 top-1/2 -translate-y-1/2 p-2 bg-black/50 hover:bg-black/70 text-white rounded-full transition"
+                          >
+                            ←
+                          </button>
+                          <button
+                            onClick={() => setCurrentImageIndex((prev) => (prev === selectedProperty.images!.length - 1 ? 0 : prev + 1))}
+                            className="absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-black/50 hover:bg-black/70 text-white rounded-full transition"
+                          >
+                            →
+                          </button>
+                          <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1">
+                            {selectedProperty.images.map((_, idx) => (
+                              <button
+                                key={idx}
+                                onClick={() => setCurrentImageIndex(idx)}
+                                className={`w-2 h-2 rounded-full transition ${
+                                  idx === currentImageIndex ? 'bg-white' : 'bg-white/50'
+                                }`}
+                              />
+                            ))}
+                          </div>
+                        </>
+                      )}
+                    </>
+                  ) : (
+                    <img
+                      src={selectedProperty.imageUrl}
+                      alt={selectedProperty.title}
+                      onError={(e) => { (e.target as HTMLImageElement).src = FALLBACK_IMAGE; }}
+                      className="w-full h-full object-cover"
+                    />
+                  )}
                 </div>
 
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
@@ -803,32 +851,15 @@ function AddListingForm({ onSuccess, onCancel }: { onSuccess: () => void; onCanc
     try {
       const SHEET_API_URL = 'https://script.google.com/macros/s/AKfycbxFvl2PyF2bDO5Lj6ZR1zingL8P25CTYPxIyJVZNsq6uGmRoN-IYlSW2e7aLviUs6is/exec';
 
-      // Her fotoğraf için ayrı ilan oluştur
+      // Görselleri ||| ile birleştir (tek ilan için)
       const imagesToUse = uploadedImages.length > 0 ? uploadedImages : [formData.imageUrl].filter((img: string) => img);
-      const totalListings = imagesToUse.length;
+      const imagesString = imagesToUse.join('|||');
 
-      if (totalListings === 0) {
+      if (imagesToUse.length === 0) {
         alert('Lütfen en az bir görsel ekleyin.');
         setSubmitting(false);
         return;
       }
-
-      // Tüm ilanları tek bir batch request olarak gönder
-      const listings = imagesToUse.map((imageUrl: string) => ({
-        'İlan Başlığı': formData.title,
-        'Fiyat': formData.price,
-        'Kategori': formData.category,
-        'İmar Durumu': formData.imarStatus,
-        'm²': formData.size,
-        'Açıklama': formData.description,
-        'Görsel URL': imageUrl,
-        'Sahibinden Linki': formData.sahibindenUrl,
-        'Ada/Parsel': formData.adaParsel,
-        'Danışman Bilgileri': formData.agentName,
-        'Danışmanın Telefon Numarası': formData.agentPhone,
-        'WhatsApp Link': formData.whatsappUrl,
-        'Durum': 'Aktif'
-      }));
 
       await fetch(SHEET_API_URL, {
         method: 'POST',
@@ -837,13 +868,27 @@ function AddListingForm({ onSuccess, onCancel }: { onSuccess: () => void; onCanc
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          action: 'batchAdd',
-          listings: listings
+          action: 'add',
+          data: {
+            'İlan Başlığı': formData.title,
+            'Fiyat': formData.price,
+            'Kategori': formData.category,
+            'İmar Durumu': formData.imarStatus,
+            'm²': formData.size,
+            'Açıklama': formData.description,
+            'Görsel URL': imagesString,
+            'Sahibinden Linki': formData.sahibindenUrl,
+            'Ada/Parsel': formData.adaParsel,
+            'Danışman Bilgileri': formData.agentName,
+            'Danışmanın Telefon Numarası': formData.agentPhone,
+            'WhatsApp Link': formData.whatsappUrl,
+            'Durum': 'Aktif'
+          }
         })
       });
 
       setTimeout(() => {
-        alert(`${totalListings} adet ilan başarıyla eklendi! Veriler Google Sheets'e yazıldı.`);
+        alert('İlan başarıyla eklendi! Veriler Google Sheets\'e yazıldı.');
         onSuccess();
       }, 1000);
     } catch (error) {
@@ -932,7 +977,7 @@ function AddListingForm({ onSuccess, onCancel }: { onSuccess: () => void; onCanc
         </div>
 
         <div className="md:col-span-2">
-          <label className="block text-xs font-semibold text-slate-400 mb-1.5">Görseller (Her fotoğraf için ayrı ilan oluşturulur)</label>
+          <label className="block text-xs font-semibold text-slate-400 mb-1.5">Görseller (Tek ilana birden fazla fotoğraf)</label>
           <div className="space-y-3">
             <div className="flex items-center gap-3">
               <input
@@ -979,7 +1024,7 @@ function AddListingForm({ onSuccess, onCancel }: { onSuccess: () => void; onCanc
             )}
 
             <div className="text-[10px] text-slate-500">
-              {uploadedImages.length}/20 görsel yüklendi - {uploadedImages.length} adet ilan oluşturulacak
+              {uploadedImages.length}/20 görsel yüklendi - Tek ilana eklenecek
             </div>
           </div>
         </div>

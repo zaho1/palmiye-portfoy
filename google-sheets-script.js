@@ -31,34 +31,6 @@ function doPost(e) {
         .setMimeType(ContentService.MimeType.JSON);
     }
 
-    if (data.action === 'batchAdd') {
-      const sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
-      const listings = data.listings;
-
-      listings.forEach(listing => {
-        const newRow = [
-          listing['İlan Başlığı'],
-          listing['Fiyat'],
-          listing['Kategori'],
-          listing['İmar Durumu'],
-          listing['m²'],
-          listing['Açıklama'],
-          listing['Görsel URL'],
-          listing['Sahibinden Linki'],
-          listing['Ada/Parsel'],
-          listing['Danışman Bilgileri'],
-          listing['Danışmanın Telefon Numarası'],
-          listing['WhatsApp Link'],
-          listing['Durum']
-        ];
-        sheet.appendRow(newRow);
-      });
-
-      return ContentService
-        .createTextOutput(JSON.stringify({ success: true, message: `${listings.length} ilan başarıyla eklendi` }))
-        .setMimeType(ContentService.MimeType.JSON);
-    }
-
     if (data.action === 'updateStatus') {
       const sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
       const dataRange = sheet.getDataRange();
