@@ -803,8 +803,32 @@ function AddListingForm({ onSuccess, onCancel }: { onSuccess: () => void; onCanc
     try {
       const SHEET_API_URL = 'https://script.google.com/macros/s/AKfycbxFvl2PyF2bDO5Lj6ZR1zingL8P25CTYPxIyJVZNsq6uGmRoN-IYlSW2e7aLviUs6is/exec';
 
-      // Görselleri virgülle ayırarak birleştir
-      const imagesString = uploadedImages.length > 0 ? uploadedImages.join('|||') : formData.imageUrl;
+      // Her fotoğraf için ayrı ilan oluştur
+      const imagesToUse = uploadedImages.length > 0 ? uploadedImages : [formData.imageUrl].filter((img: string) => img);
+      const totalListings = imagesToUse.length;
+
+      if (totalListings === 0) {
+        alert('Lütfen en az bir görsel ekleyin.');
+        setSubmitting(false);
+        return;
+      }
+
+      // Tüm ilanları tek bir batch request olarak gönder
+      const listings = imagesToUse.map((imageUrl: string) => ({
+        'İlan Başlığı': formData.title,
+        'Fiyat': formData.price,
+        'Kategori': formData.category,
+        'İmar Durumu': formData.imarStatus,
+        'm²': formData.size,
+        'Açıklama': formData.description,
+        'Görsel URL': imageUrl,
+        'Sahibinden Linki': formData.sahibindenUrl,
+        'Ada/Parsel': formData.adaParsel,
+        'Danışman Bilgileri': formData.agentName,
+        'Danışmanın Telefon Numarası': formData.agentPhone,
+        'WhatsApp Link': formData.whatsappUrl,
+        'Durum': 'Aktif'
+      }));
 
       await fetch(SHEET_API_URL, {
         method: 'POST',
@@ -813,27 +837,13 @@ function AddListingForm({ onSuccess, onCancel }: { onSuccess: () => void; onCanc
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          action: 'add',
-          data: {
-            'İlan Başlığı': formData.title,
-            'Fiyat': formData.price,
-            'Kategori': formData.category,
-            'İmar Durumu': formData.imarStatus,
-            'm²': formData.size,
-            'Açıklama': formData.description,
-            'Görsel URL': imagesString,
-            'Sahibinden Linki': formData.sahibindenUrl,
-            'Ada/Parsel': formData.adaParsel,
-            'Danışman Bilgileri': formData.agentName,
-            'Danışmanın Telefon Numarası': formData.agentPhone,
-            'WhatsApp Link': formData.whatsappUrl,
-            'Durum': 'Aktif'
-          }
+          action: 'batchAdd',
+          listings: listings
         })
       });
 
       setTimeout(() => {
-        alert('İlan başarıyla eklendi! Veriler Google Sheets\'e yazıldı.');
+        alert(`${totalListings} adet ilan başarıyla eklendi! Veriler Google Sheets'e yazıldı.`);
         onSuccess();
       }, 1000);
     } catch (error) {
@@ -922,7 +932,7 @@ function AddListingForm({ onSuccess, onCancel }: { onSuccess: () => void; onCanc
         </div>
 
         <div className="md:col-span-2">
-          <label className="block text-xs font-semibold text-slate-400 mb-1.5">Görseller (Maksimum 20 adet)</label>
+          <label className="block text-xs font-semibold text-slate-400 mb-1.5">Görseller (Her fotoğraf için ayrı ilan oluşturulur)</label>
           <div className="space-y-3">
             <div className="flex items-center gap-3">
               <input
@@ -969,7 +979,7 @@ function AddListingForm({ onSuccess, onCancel }: { onSuccess: () => void; onCanc
             )}
 
             <div className="text-[10px] text-slate-500">
-              {uploadedImages.length}/20 görsel yüklendi
+              {uploadedImages.length}/20 görsel yüklendi - {uploadedImages.length} adet ilan oluşturulacak
             </div>
           </div>
         </div>
