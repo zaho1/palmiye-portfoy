@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react';
 import Papa from 'papaparse';
-import { 
-  Building2, 
-  Search, 
-  Phone, 
-  Shield, 
-  Eye, 
+import {
+  Building2,
+  Search,
+  Phone,
+  Shield,
+  Eye,
   EyeOff,
   ExternalLink,
   MessageCircle,
@@ -18,7 +18,9 @@ import {
   Globe,
   Trees,
   Filter,
-  KeyRound
+  KeyRound,
+  Plus,
+  CheckCircle
 } from 'lucide-react';
 import type { Property } from './types';
 import Login from './components/Login';
@@ -37,6 +39,8 @@ export default function App() {
   const [selectedType, setSelectedType] = useState<string>('Hepsi');
   const [showPrivateInfo, setShowPrivateInfo] = useState<boolean>(true);
   const [selectedProperty, setSelectedProperty] = useState<Property | null>(null);
+  const [showAddListingModal, setShowAddListingModal] = useState<boolean>(false);
+  const [activeTab, setActiveTab] = useState<'active' | 'sold'>('active');
 
   const [minPrice, setMinPrice] = useState<string>('');
   const [maxPrice, setMaxPrice] = useState<string>('');
@@ -102,7 +106,7 @@ export default function App() {
   };
 
   const filteredProperties = properties.filter(item => {
-    const matchesSearch = item.title.toLowerCase().includes(searchTerm.toLowerCase()) || 
+    const matchesSearch = item.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
                           (item.description && item.description.toLowerCase().includes(searchTerm.toLowerCase()));
     const matchesType = selectedType === 'Hepsi' || item.category.toLowerCase().includes(selectedType.toLowerCase());
 
@@ -111,23 +115,91 @@ export default function App() {
     const max = maxPrice ? parseInt(maxPrice, 10) : Infinity;
 
     const matchesPrice = numPrice >= min && numPrice <= max;
+    const matchesStatus = activeTab === 'active'
+      ? item.status !== 'Satıldı' && item.status.trim() !== 'Pasif'
+      : item.status === 'Satıldı';
 
-    return matchesSearch && matchesType && matchesPrice;
+    return matchesSearch && matchesType && matchesPrice && matchesStatus;
   });
 
-  const totalListings = properties.length;
-  const kiralikCount = properties.filter(i => i.category.toLowerCase().includes('kiralık')).length;
-  const satilikCount = properties.filter(i => i.category.toLowerCase().includes('satılık')).length;
+  const totalListings = properties.filter(i => i.status !== 'Satıldı' && i.status.trim() !== 'Pasif').length;
+  const soldCount = properties.filter(i => i.status === 'Satıldı').length;
+  const kiralikCount = properties.filter(i => i.category.toLowerCase().includes('kiralık') && i.status !== 'Satıldı').length;
+  const satilikCount = properties.filter(i => i.category.toLowerCase().includes('satılık') && i.status !== 'Satıldı').length;
 
   const getSmartWhatsappUrl = (item: Property) => {
     const rawPhone = item.agentPhone ? item.agentPhone.replace(/[^0-9]/g, '') : '';
     const phoneToUse = rawPhone.length === 10 ? `90${rawPhone}` : rawPhone;
     const text = encodeURIComponent(`Merhaba, Palmiye Yatırım bünyesindeki "${item.title}" ilanı hakkında detaylı bilgi almak istiyorum.`);
-    
+
     if (phoneToUse) {
       return `https://wa.me/${phoneToUse}?text=${text}`;
     }
     return item.whatsappUrl ? `${item.whatsappUrl}?text=${text}` : '#';
+  };
+
+  const markAsSold = async (propertyId: string, propertyTitle: string) => {
+    // Önce local state'i güncelle
+    setProperties(prev =>
+      prev.map(p =>
+        p.id === propertyId ? { ...p, status: 'Satıldı' } : p
+      )
+    );
+    setSelectedProperty(null);
+
+    // Google Sheets'e de güncelle
+    try {
+      const SHEET_API_URL = 'https://script.google.com/macros/s/AKfycbxZ_5kZ_7kZ_7kZ_7kZ_7kZ_7kZ_7kZ/exec';
+
+      await fetch(SHEET_API_URL, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          action: 'updateStatus',
+          title: propertyTitle,
+          status: 'Satıldı'
+        })
+      });
+
+      console.log('Durum Google Sheets\'e güncellendi');
+    } catch (error) {
+      console.error('Google Sheets güncelleme hatası:', error);
+    }
+  };
+
+  const markAsActive = async (propertyId: string, propertyTitle: string) => {
+    // Önce local state'i güncelle
+    setProperties(prev =>
+      prev.map(p =>
+        p.id === propertyId ? { ...p, status: 'Aktif' } : p
+      )
+    );
+    setSelectedProperty(null);
+
+    // Google Sheets'e de güncelle
+    try {
+      const SHEET_API_URL = 'https://script.google.com/macros/s/AKfycbxZ_5kZ_7kZ_7kZ_7kZ_7kZ_7kZ_7kZ/exec';
+
+      await fetch(SHEET_API_URL, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          action: 'updateStatus',
+          title: propertyTitle,
+          status: 'Aktif'
+        })
+      });
+
+      console.log('Durum Google Sheets\'e güncellendi');
+    } catch (error) {
+      console.error('Google Sheets güncelleme hatası:', error);
+    }
   };
 
   return (
@@ -246,7 +318,7 @@ export default function App() {
 
       {/* ANA İÇERİK ALANI */}
       <main className="flex-1 p-6 md:p-8 overflow-y-auto">
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
           <div className="bg-slate-950 border border-slate-800/80 rounded-2xl p-4 flex items-center gap-4">
             <div className="p-3 bg-emerald-500/10 text-emerald-400 rounded-xl">
               <Home className="w-6 h-6" />
@@ -276,15 +348,57 @@ export default function App() {
               <h3 className="text-xl font-bold text-white">{satilikCount} Adet</h3>
             </div>
           </div>
+
+          <div className="bg-slate-950 border border-slate-800/80 rounded-2xl p-4 flex items-center gap-4">
+            <div className="p-3 bg-rose-500/10 text-rose-400 rounded-xl">
+              <CheckCircle className="w-6 h-6" />
+            </div>
+            <div>
+              <p className="text-xs text-slate-400 font-medium">Satılan İlan Sayısı</p>
+              <h3 className="text-xl font-bold text-white">{soldCount} Adet</h3>
+            </div>
+          </div>
         </div>
 
         <header className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 mb-8">
-          <div>
-            <h2 className="text-2xl font-bold text-white">Palmiye Yatırım | Danışman Paneli</h2>
-            <p className="text-sm text-slate-400">Aktif filtrelenen {filteredProperties.length} gayrimenkul</p>
+          <div className="flex items-center gap-4">
+            <div>
+              <h2 className="text-2xl font-bold text-white">Palmiye Yatırım | Danışman Paneli</h2>
+              <p className="text-sm text-slate-400">Aktif filtrelenen {filteredProperties.length} gayrimenkul</p>
+            </div>
+
+            <div className="flex bg-slate-950 border border-slate-800 rounded-xl p-1">
+              <button
+                onClick={() => setActiveTab('active')}
+                className={`px-4 py-2 rounded-lg text-xs font-semibold transition ${
+                  activeTab === 'active'
+                    ? 'bg-emerald-600 text-white'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                Aktif ({totalListings})
+              </button>
+              <button
+                onClick={() => setActiveTab('sold')}
+                className={`px-4 py-2 rounded-lg text-xs font-semibold transition ${
+                  activeTab === 'sold'
+                    ? 'bg-emerald-600 text-white'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                Satılan ({soldCount})
+              </button>
+            </div>
           </div>
 
           <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto">
+            <button
+              onClick={() => setShowAddListingModal(true)}
+              className="flex items-center gap-2 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-sm font-semibold shadow-lg shadow-emerald-900/20 transition"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Yeni İlan Ekle</span>
+            </button>
             <div className="relative flex-1 sm:w-64">
               <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
               <input 
@@ -338,16 +452,20 @@ export default function App() {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredProperties.map((item) => (
-              <div 
-                key={item.id} 
-                className="bg-slate-950 border border-slate-800/80 rounded-2xl overflow-hidden hover:border-slate-700 transition duration-300 flex flex-col justify-between group cursor-pointer"
+              <div
+                key={item.id}
+                className={`bg-slate-950 border rounded-2xl overflow-hidden transition duration-300 flex flex-col justify-between group cursor-pointer ${
+                  item.status === 'Satıldı'
+                    ? 'border-amber-500/30 opacity-70 hover:opacity-100'
+                    : 'border-slate-800/80 hover:border-slate-700'
+                }`}
                 onClick={() => setSelectedProperty(item)}
               >
                 <div>
                   <div className="relative h-48 overflow-hidden bg-slate-900">
-                    <img 
-                      src={item.imageUrl} 
-                      alt={item.title} 
+                    <img
+                      src={item.imageUrl}
+                      alt={item.title}
                       onError={(e) => { (e.target as HTMLImageElement).src = FALLBACK_IMAGE; }}
                       className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
                     />
@@ -360,11 +478,19 @@ export default function App() {
                           {item.size}
                         </span>
                       )}
+                      {item.status === 'Satıldı' && (
+                        <span className="bg-amber-500/90 text-white px-2.5 py-1 rounded-lg text-xs font-semibold flex items-center gap-1">
+                          <CheckCircle className="w-3 h-3" />
+                          Satıldı
+                        </span>
+                      )}
                     </div>
                   </div>
 
                   <div className="p-5">
-                    <p className="text-xl font-bold text-emerald-400 mb-1">
+                    <p className={`text-xl font-bold mb-1 ${
+                      item.status === 'Satıldı' ? 'text-amber-400 line-through' : 'text-emerald-400'
+                    }`}>
                       {item.price}
                     </p>
                     <h3 className="font-semibold text-slate-100 text-base mb-3 line-clamp-2">
@@ -417,20 +543,47 @@ export default function App() {
       {/* İLAN DETAY MODALI (GENİŞ & PROFESYONEL 2 SÜTUNLU DÜZEN) */}
       {selectedProperty && (
         <div className="fixed inset-0 bg-slate-950/85 backdrop-blur-md z-50 flex items-center justify-center p-4 md:p-6">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-5xl w-full overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
+          <div className={`bg-slate-900 border rounded-3xl max-w-5xl w-full overflow-hidden shadow-2xl flex flex-col max-h-[90vh] ${
+            selectedProperty.status === 'Satıldı' ? 'border-amber-500/30' : 'border-slate-800'
+          }`}>
             <div className="px-6 py-4 border-b border-slate-800/80 flex items-center justify-between bg-slate-950/50">
               <div className="flex items-center gap-3">
                 <span className="text-xs font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-3 py-1 rounded-lg">
                   {selectedProperty.category}
                 </span>
                 <span className="text-xs text-slate-400 font-mono">İlan No: {selectedProperty.id}</span>
+                {selectedProperty.status === 'Satıldı' && (
+                  <span className="text-xs font-bold text-amber-400 bg-amber-500/10 border border-amber-500/20 px-3 py-1 rounded-lg flex items-center gap-1">
+                    <CheckCircle className="w-3 h-3" />
+                    Satıldı
+                  </span>
+                )}
               </div>
-              <button 
-                onClick={() => setSelectedProperty(null)}
-                className="p-2 text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 rounded-xl transition"
-              >
-                <X className="w-5 h-5" />
-              </button>
+              <div className="flex items-center gap-2">
+                {selectedProperty.status !== 'Satıldı' ? (
+                  <button
+                    onClick={() => markAsSold(selectedProperty.id, selectedProperty.title)}
+                    className="flex items-center gap-1.5 px-3 py-2 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/20 rounded-lg text-xs font-semibold transition"
+                  >
+                    <CheckCircle className="w-3.5 h-3.5" />
+                    <span>Satıldı Olarak İşaretle</span>
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => markAsActive(selectedProperty.id, selectedProperty.title)}
+                    className="flex items-center gap-1.5 px-3 py-2 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 rounded-lg text-xs font-semibold transition"
+                  >
+                    <RefreshCw className="w-3.5 h-3.5" />
+                    <span>Aktife Geri Al</span>
+                  </button>
+                )}
+                <button
+                  onClick={() => setSelectedProperty(null)}
+                  className="p-2 text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 rounded-xl transition"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
             </div>
 
             <div className="p-6 overflow-y-auto grid grid-cols-1 lg:grid-cols-12 gap-6">
@@ -471,7 +624,11 @@ export default function App() {
               <div className="lg:col-span-5 flex flex-col justify-between space-y-4">
                 <div className="space-y-4">
                   <div>
-                    <p className="text-3xl font-black text-emerald-400 mb-1">{selectedProperty.price}</p>
+                    <p className={`text-3xl font-black mb-1 ${
+                      selectedProperty.status === 'Satıldı' ? 'text-amber-400 line-through' : 'text-emerald-400'
+                    }`}>
+                      {selectedProperty.price}
+                    </p>
                     <h2 className="text-lg font-bold text-white leading-snug">{selectedProperty.title}</h2>
                   </div>
 
@@ -541,6 +698,264 @@ export default function App() {
           </div>
         </div>
       )}
+
+      {/* İLAN EKLEME MODALI */}
+      {showAddListingModal && (
+        <div className="fixed inset-0 bg-slate-950/85 backdrop-blur-md z-50 flex items-center justify-center p-4 md:p-6">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-3xl w-full overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
+            <div className="px-6 py-4 border-b border-slate-800/80 flex items-center justify-between bg-slate-950/50">
+              <div>
+                <h3 className="text-lg font-bold text-white">Yeni İlan Ekle</h3>
+                <p className="text-xs text-slate-400">Google Sheets'e ve portföye yeni ilan ekleyin</p>
+              </div>
+              <button
+                onClick={() => setShowAddListingModal(false)}
+                className="p-2 text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 rounded-xl transition"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-6 overflow-y-auto">
+              <AddListingForm
+                onSuccess={() => {
+                  setShowAddListingModal(false);
+                  fetchProperties();
+                }}
+                onCancel={() => setShowAddListingModal(false)}
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
+  );
+}
+
+function AddListingForm({ onSuccess, onCancel }: { onSuccess: () => void; onCancel: () => void }) {
+  const [formData, setFormData] = useState({
+    title: '',
+    price: '',
+    category: 'Satılık',
+    imarStatus: '',
+    size: '',
+    description: '',
+    imageUrl: '',
+    sahibindenUrl: '',
+    adaParsel: '',
+    agentName: '',
+    agentPhone: '',
+    whatsappUrl: ''
+  });
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSubmitting(true);
+
+    try {
+      const SHEET_API_URL = 'https://script.google.com/macros/s/AKfycbxZ_5kZ_7kZ_7kZ_7kZ_7kZ_7kZ_7kZ/exec';
+
+      const response = await fetch(SHEET_API_URL, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          action: 'add',
+          data: {
+            'İlan Başlığı': formData.title,
+            'Fiyat': formData.price,
+            'Kategori': formData.category,
+            'İmar Durumu': formData.imarStatus,
+            'm²': formData.size,
+            'Açıklama': formData.description,
+            'Görsel URL': formData.imageUrl,
+            'Sahibinden Linki': formData.sahibindenUrl,
+            'Ada/Parsel': formData.adaParsel,
+            'Danışman Bilgileri': formData.agentName,
+            'Danışmanın Telefon Numarası': formData.agentPhone,
+            'WhatsApp Link': formData.whatsappUrl,
+            'Durum': 'Aktif'
+          }
+        })
+      });
+
+      setTimeout(() => {
+        alert('İlan başarıyla eklendi! Veriler Google Sheets\'e yazıldı.');
+        onSuccess();
+      }, 1000);
+    } catch (error) {
+      console.error('İlan eklenirken hata:', error);
+      alert('İlan eklenirken bir hata oluştu. Lütfen tekrar deneyin.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="md:col-span-2">
+          <label className="block text-xs font-semibold text-slate-400 mb-1.5">İlan Başlığı *</label>
+          <input
+            type="text"
+            required
+            value={formData.title}
+            onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+            className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-sm text-white focus:outline-none focus:border-emerald-500 transition"
+            placeholder="Örn: Antalya Konyaaltı'nda 3+1 Daire"
+          />
+        </div>
+
+        <div>
+          <label className="block text-xs font-semibold text-slate-400 mb-1.5">Fiyat *</label>
+          <input
+            type="text"
+            required
+            value={formData.price}
+            onChange={(e) => setFormData({ ...formData, price: e.target.value })}
+            className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-sm text-white focus:outline-none focus:border-emerald-500 transition"
+            placeholder="Örn: 2.500.000 TL"
+          />
+        </div>
+
+        <div>
+          <label className="block text-xs font-semibold text-slate-400 mb-1.5">Kategori *</label>
+          <select
+            required
+            value={formData.category}
+            onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+            className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-sm text-white focus:outline-none focus:border-emerald-500 transition"
+          >
+            <option value="Satılık">Satılık</option>
+            <option value="Kiralık">Kiralık</option>
+            <option value="Satılık Daire">Satılık Daire</option>
+            <option value="Kiralık Daire">Kiralık Daire</option>
+            <option value="Satılık Arsa">Satılık Arsa</option>
+            <option value="Kiralık Arsa">Kiralık Arsa</option>
+          </select>
+        </div>
+
+        <div>
+          <label className="block text-xs font-semibold text-slate-400 mb-1.5">m²</label>
+          <input
+            type="text"
+            value={formData.size}
+            onChange={(e) => setFormData({ ...formData, size: e.target.value })}
+            className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-sm text-white focus:outline-none focus:border-emerald-500 transition"
+            placeholder="Örn: 120 m²"
+          />
+        </div>
+
+        <div>
+          <label className="block text-xs font-semibold text-slate-400 mb-1.5">İmar Durumu</label>
+          <input
+            type="text"
+            value={formData.imarStatus}
+            onChange={(e) => setFormData({ ...formData, imarStatus: e.target.value })}
+            className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-sm text-white focus:outline-none focus:border-emerald-500 transition"
+            placeholder="Örn: Konut, Ticari"
+          />
+        </div>
+
+        <div className="md:col-span-2">
+          <label className="block text-xs font-semibold text-slate-400 mb-1.5">Açıklama</label>
+          <textarea
+            value={formData.description}
+            onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+            rows={3}
+            className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-sm text-white focus:outline-none focus:border-emerald-500 transition resize-none"
+            placeholder="İlan detaylarını buraya girin..."
+          />
+        </div>
+
+        <div className="md:col-span-2">
+          <label className="block text-xs font-semibold text-slate-400 mb-1.5">Görsel URL</label>
+          <input
+            type="url"
+            value={formData.imageUrl}
+            onChange={(e) => setFormData({ ...formData, imageUrl: e.target.value })}
+            className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-sm text-white focus:outline-none focus:border-emerald-500 transition"
+            placeholder="https://example.com/image.jpg"
+          />
+        </div>
+
+        <div>
+          <label className="block text-xs font-semibold text-slate-400 mb-1.5">Sahibinden Linki</label>
+          <input
+            type="url"
+            value={formData.sahibindenUrl}
+            onChange={(e) => setFormData({ ...formData, sahibindenUrl: e.target.value })}
+            className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-sm text-white focus:outline-none focus:border-emerald-500 transition"
+            placeholder="https://www.sahibinden.com/..."
+          />
+        </div>
+
+        <div>
+          <label className="block text-xs font-semibold text-slate-400 mb-1.5">Ada/Parsel</label>
+          <input
+            type="text"
+            value={formData.adaParsel}
+            onChange={(e) => setFormData({ ...formData, adaParsel: e.target.value })}
+            className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-sm text-white focus:outline-none focus:border-emerald-500 transition"
+            placeholder="Örn: 1234/56"
+          />
+        </div>
+
+        <div>
+          <label className="block text-xs font-semibold text-slate-400 mb-1.5">Danışman Bilgileri *</label>
+          <input
+            type="text"
+            required
+            value={formData.agentName}
+            onChange={(e) => setFormData({ ...formData, agentName: e.target.value })}
+            className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-sm text-white focus:outline-none focus:border-emerald-500 transition"
+            placeholder="Danışman adı"
+          />
+        </div>
+
+        <div>
+          <label className="block text-xs font-semibold text-slate-400 mb-1.5">Danışman Telefon *</label>
+          <input
+            type="tel"
+            required
+            value={formData.agentPhone}
+            onChange={(e) => setFormData({ ...formData, agentPhone: e.target.value })}
+            className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-sm text-white focus:outline-none focus:border-emerald-500 transition"
+            placeholder="0555 123 45 67"
+          />
+        </div>
+
+        <div className="md:col-span-2">
+          <label className="block text-xs font-semibold text-slate-400 mb-1.5">WhatsApp Link</label>
+          <input
+            type="url"
+            value={formData.whatsappUrl}
+            onChange={(e) => setFormData({ ...formData, whatsappUrl: e.target.value })}
+            className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-sm text-white focus:outline-none focus:border-emerald-500 transition"
+            placeholder="https://wa.me/905551234567"
+          />
+        </div>
+      </div>
+
+      <div className="flex gap-3 pt-4 border-t border-slate-800">
+        <button
+          type="button"
+          onClick={onCancel}
+          className="flex-1 px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-sm font-semibold transition"
+        >
+          İptal
+        </button>
+        <button
+          type="submit"
+          disabled={submitting}
+          className="flex-1 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-sm font-semibold shadow-lg shadow-emerald-900/20 transition disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {submitting ? 'Ekleniyor...' : 'İlanı Ekle'}
+        </button>
+      </div>
+    </form>
   );
 }
