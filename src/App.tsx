@@ -16,7 +16,6 @@ import {
   LogOut,
   UserCheck,
   Globe,
-  Trees,
   Filter,
   KeyRound,
   Plus,
@@ -294,14 +293,16 @@ export default function App() {
       <aside className="w-64 bg-slate-950 border-r border-slate-800 p-6 flex flex-col justify-between hidden md:flex shrink-0">
         <div className="space-y-6">
           <div className="flex items-center gap-3">
-            <div className="p-2.5 bg-emerald-600 text-white rounded-xl shadow-lg shadow-emerald-900/30">
-              <Trees className="w-7 h-7" />
-            </div>
-            <div>
-              <h1 className="font-black text-lg text-white tracking-wider">PALMİYE</h1>
-              <p className="text-xs text-emerald-400 font-bold tracking-wide">YATIRIM & PORTFÖY</p>
-            </div>
-          </div>
+  <img 
+    src="/logo.png" 
+    alt="Palmiye Yatırım" 
+    className="h-10 w-auto object-contain drop-shadow-sm" 
+  />
+  <div>
+    <h1 className="font-black text-lg text-white tracking-wider">PALMİYE</h1>
+    <p className="text-xs text-emerald-400 font-bold tracking-wide">YATIRIM & PORTFÖY</p>
+  </div>
+</div>
 
           <nav className="space-y-4">
             <div>

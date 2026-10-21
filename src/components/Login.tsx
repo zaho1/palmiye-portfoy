@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Lock, Mail, ArrowRight, ShieldCheck, Trees } from 'lucide-react';
+import { Lock, Mail, ArrowRight, ShieldCheck } from 'lucide-react';
 import { OFFICE_AUTH_CONFIG } from '../config/auth';
 
 interface LoginProps {
@@ -31,45 +31,43 @@ export default function Login({ onLoginSuccess }: LoginProps) {
     if (password === OFFICE_AUTH_CONFIG.defaultPassword) {
       onLoginSuccess(cleanEmail);
     } else {
-      setError('Hatalı şifre! Lütfen ofis yöneticisiyle iletişime geçin.');
+      setError('Girdiğiniz şifre hatalı!');
     }
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center p-4">
-      <div className="max-w-md w-full bg-slate-900 border border-slate-800 rounded-3xl p-8 shadow-2xl relative overflow-hidden">
-        {/* Tabela Yeşil Glow Efekti */}
-        <div className="absolute -top-20 -right-20 w-40 h-40 bg-emerald-500/15 rounded-full blur-3xl pointer-events-none"></div>
-
-        {/* LOGO & BAŞLIK */}
+    <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4">
+      <div className="w-full max-w-md bg-slate-900/90 border border-slate-800 p-8 rounded-2xl shadow-2xl backdrop-blur-xl">
         <div className="text-center mb-8">
-          <div className="inline-flex p-3 bg-emerald-500/10 text-emerald-400 rounded-2xl border border-emerald-500/20 mb-3">
-            <Trees className="w-9 h-9" />
+          <div className="flex justify-center mb-4">
+            <img 
+              src="/logo.png" 
+              alt="Palmiye Yatırım" 
+              className="h-20 w-auto object-contain drop-shadow-md" 
+            />
           </div>
-          <h1 className="text-2xl font-black text-white tracking-wider">PALMİYE YATIRIM</h1>
-          <p className="text-xs text-emerald-400 font-semibold mt-1">Yalova Gayrimenkul Portföy Paneli</p>
+          <h2 className="text-2xl font-bold text-white tracking-wider">PALMİYE YATIRIM</h2>
+          <p className="text-xs text-emerald-400 mt-1 font-medium">Yalova Gayrimenkul Portföy Paneli</p>
         </div>
 
-        {/* HATA MESAJI */}
         {error && (
-          <div className="mb-6 p-3 bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs rounded-xl text-center font-medium">
+          <div className="mb-6 p-3 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-sm text-center">
             {error}
           </div>
         )}
 
-        {/* GİRİŞ FORMU */}
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-xs font-medium text-slate-400 mb-1.5">E-Posta Adresiniz</label>
             <div className="relative">
               <Mail className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
-              <input 
-                type="email" 
+              <input
+                type="email"
                 required
                 placeholder="ornek@palmiyeyatirim.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full pl-10 pr-4 py-3 bg-slate-950 border border-slate-800 rounded-xl text-sm focus:outline-none focus:border-emerald-500 transition text-white placeholder-slate-600"
+                className="w-full pl-10 pr-4 py-3 bg-slate-950 border border-slate-800 rounded-xl text-sm text-white focus:outline-none focus:border-emerald-500 transition"
               />
             </div>
           </div>
@@ -78,20 +76,20 @@ export default function Login({ onLoginSuccess }: LoginProps) {
             <label className="block text-xs font-medium text-slate-400 mb-1.5">Ofis Giriş Şifresi</label>
             <div className="relative">
               <Lock className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
-              <input 
-                type="password" 
+              <input
+                type="password"
                 required
                 placeholder="••••••••"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full pl-10 pr-4 py-3 bg-slate-950 border border-slate-800 rounded-xl text-sm focus:outline-none focus:border-emerald-500 transition text-white placeholder-slate-600"
+                className="w-full pl-10 pr-4 py-3 bg-slate-950 border border-slate-800 rounded-xl text-sm text-white focus:outline-none focus:border-emerald-500 transition"
               />
             </div>
           </div>
 
-          <button 
+          <button
             type="submit"
-            className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold shadow-lg shadow-emerald-900/30 transition flex items-center justify-center gap-2 mt-6 text-sm tracking-wide"
+            className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold shadow-lg shadow-emerald-900/30 transition flex items-center justify-center gap-2 mt-2"
           >
             <span>Panele Giriş Yap</span>
             <ArrowRight className="w-4 h-4" />
