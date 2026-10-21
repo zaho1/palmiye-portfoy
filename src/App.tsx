@@ -42,7 +42,7 @@ export default function App() {
   const [showPrivateInfo, setShowPrivateInfo] = useState<boolean>(true);
   const [selectedProperty, setSelectedProperty] = useState<Property | null>(null);
   const [showAddListingModal, setShowAddListingModal] = useState<boolean>(false);
-  const [activeTab, setActiveTab] = useState<'active' | 'sold'>('active');
+  const [activeTab, setActiveTab] = useState<'active' | 'passive' | 'sold' | 'deleted'>('active');
   const [currentImageIndex, setCurrentImageIndex] = useState<number>(0);
 
   const [minPrice, setMinPrice] = useState<string>('');
@@ -90,7 +90,7 @@ export default function App() {
           };
         });
 
-        setProperties(parsedData.filter(item => item.title && item.status.trim() !== 'Pasif'));
+        setProperties(parsedData);
         setLoading(false);
       },
       error: (error) => {
@@ -127,16 +127,23 @@ export default function App() {
 
     const matchesPrice = numPrice >= min && numPrice <= max;
     const matchesStatus = activeTab === 'active'
-      ? item.status !== 'Satıldı' && item.status.trim() !== 'Pasif'
-      : item.status === 'Satıldı';
+      ? item.status === 'Aktif'
+      : activeTab === 'passive'
+      ? item.status === 'Pasif'
+      : activeTab === 'sold'
+      ? item.status === 'Satıldı'
+      : activeTab === 'deleted'
+      ? item.status === 'Silindi'
+      : true;
 
     return matchesSearch && matchesType && matchesPrice && matchesStatus;
   });
 
-  const totalListings = properties.filter(i => i.status !== 'Satıldı' && i.status.trim() !== 'Pasif').length;
+  const totalListings = properties.filter(i => i.status === 'Aktif').length;
+  const passiveCount = properties.filter(i => i.status === 'Pasif').length;
   const soldCount = properties.filter(i => i.status === 'Satıldı').length;
-  const kiralikCount = properties.filter(i => i.category.toLowerCase().includes('kiralık') && i.status !== 'Satıldı').length;
-  const satilikCount = properties.filter(i => i.category.toLowerCase().includes('satılık') && i.status !== 'Satıldı').length;
+  const deletedCount = properties.filter(i => i.status === 'Silindi').length;
+  const kiralikCount = properties.filter(i => i.category.toLowerCase().includes('kiralık') && i.status === 'Aktif').length;
 
   const getSmartWhatsappUrl = (item: Property) => {
     const rawPhone = item.agentPhone ? item.agentPhone.replace(/[^0-9]/g, '') : '';
@@ -213,6 +220,74 @@ export default function App() {
     }
   };
 
+  const markAsPassive = async (propertyId: string, propertyTitle: string) => {
+    // Önce local state'i güncelle
+    setProperties(prev =>
+      prev.map(p =>
+        p.id === propertyId ? { ...p, status: 'Pasif' } : p
+      )
+    );
+    setSelectedProperty(null);
+
+    // Google Sheets'e de güncelle
+    try {
+      const SHEET_API_URL = 'https://script.google.com/macros/s/AKfycbxrz5C7MO9i1Xrer7fxclyAIV-UHNjJ1bCr99BkWaZ6fKmbi9FhUkpEHoSKZbFlP0kAUg/exec';
+
+      await fetch(SHEET_API_URL, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          action: 'updateStatus',
+          title: propertyTitle,
+          status: 'Pasif'
+        })
+      });
+
+      console.log('Durum Google Sheets\'e güncellendi');
+    } catch (error) {
+      console.error('Google Sheets güncelleme hatası:', error);
+    }
+  };
+
+  const deleteProperty = async (propertyId: string, propertyTitle: string) => {
+    if (!confirm('Bu ilanı silmek istediğinizden emin misiniz? Silinen ilanlar "Silinenler" sekmesinde görüntülenebilir.')) {
+      return;
+    }
+
+    // Önce local state'i güncelle
+    setProperties(prev =>
+      prev.map(p =>
+        p.id === propertyId ? { ...p, status: 'Silindi' } : p
+      )
+    );
+    setSelectedProperty(null);
+
+    // Google Sheets'e de güncelle
+    try {
+      const SHEET_API_URL = 'https://script.google.com/macros/s/AKfycbxrz5C7MO9i1Xrer7fxclyAIV-UHNjJ1bCr99BkWaZ6fKmbi9FhUkpEHoSKZbFlP0kAUg/exec';
+
+      await fetch(SHEET_API_URL, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          action: 'updateStatus',
+          title: propertyTitle,
+          status: 'Silindi'
+        })
+      });
+
+      console.log('Durum Google Sheets\'e güncellendi');
+    } catch (error) {
+      console.error('Google Sheets güncelleme hatası:', error);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-slate-900 text-slate-100 flex">
       {/* SOL SIDEBAR */}
@@ -270,10 +345,68 @@ export default function App() {
             </div>
 
             <div>
+              <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2 px-1">İlan Durumu</p>
+              <div className="space-y-1">
+                <button
+                  onClick={() => setActiveTab('active')}
+                  className={`w-full flex items-center justify-between px-3.5 py-2 rounded-lg text-xs font-medium transition ${
+                    activeTab === 'active'
+                      ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                      : 'text-slate-400 hover:text-white hover:bg-slate-900'
+                  }`}
+                >
+                  <span>Aktif İlanlar</span>
+                  <span className="text-[10px] bg-slate-900 px-2 py-0.5 rounded-md text-slate-500 font-mono">
+                    {totalListings}
+                  </span>
+                </button>
+                <button
+                  onClick={() => setActiveTab('passive')}
+                  className={`w-full flex items-center justify-between px-3.5 py-2 rounded-lg text-xs font-medium transition ${
+                    activeTab === 'passive'
+                      ? 'bg-slate-500/20 text-slate-400 border border-slate-500/30'
+                      : 'text-slate-400 hover:text-white hover:bg-slate-900'
+                  }`}
+                >
+                  <span>Pasif İlanlar</span>
+                  <span className="text-[10px] bg-slate-900 px-2 py-0.5 rounded-md text-slate-500 font-mono">
+                    {passiveCount}
+                  </span>
+                </button>
+                <button
+                  onClick={() => setActiveTab('sold')}
+                  className={`w-full flex items-center justify-between px-3.5 py-2 rounded-lg text-xs font-medium transition ${
+                    activeTab === 'sold'
+                      ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
+                      : 'text-slate-400 hover:text-white hover:bg-slate-900'
+                  }`}
+                >
+                  <span>Satılan İlanlar</span>
+                  <span className="text-[10px] bg-slate-900 px-2 py-0.5 rounded-md text-slate-500 font-mono">
+                    {soldCount}
+                  </span>
+                </button>
+                <button
+                  onClick={() => setActiveTab('deleted')}
+                  className={`w-full flex items-center justify-between px-3.5 py-2 rounded-lg text-xs font-medium transition ${
+                    activeTab === 'deleted'
+                      ? 'bg-red-500/20 text-red-400 border border-red-500/30'
+                      : 'text-slate-400 hover:text-white hover:bg-slate-900'
+                  }`}
+                >
+                  <span>Silinen İlanlar</span>
+                  <span className="text-[10px] bg-slate-900 px-2 py-0.5 rounded-md text-slate-500 font-mono">
+                    {deletedCount}
+                  </span>
+                </button>
+              </div>
+            </div>
+
+            <div>
               <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2 px-1">Bağlantılar</p>
-              <a 
-                href="https://palmiyeyatirim.com/tr" 
-                target="_blank" 
+              <a
+                href="https://palmiyeyatirim.com/tr"
+                target="_blank"
                 rel="noreferrer"
                 className="w-full flex items-center justify-between px-3.5 py-2.5 bg-slate-900 hover:bg-slate-800 border border-slate-800/80 text-slate-300 hover:text-white rounded-xl text-xs font-medium transition"
               >
@@ -329,44 +462,54 @@ export default function App() {
 
       {/* ANA İÇERİK ALANI */}
       <main className="flex-1 p-6 md:p-8 overflow-y-auto">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 mb-8">
           <div className="bg-slate-950 border border-slate-800/80 rounded-2xl p-4 flex items-center gap-4">
             <div className="p-3 bg-emerald-500/10 text-emerald-400 rounded-xl">
               <Home className="w-6 h-6" />
             </div>
             <div>
-              <p className="text-xs text-slate-400 font-medium">Toplam Portföy</p>
-              <h3 className="text-xl font-bold text-white">{totalListings} İlan</h3>
+              <p className="text-xs text-slate-400 font-medium">Aktif İlan</p>
+              <h3 className="text-xl font-bold text-white">{totalListings} Adet</h3>
             </div>
           </div>
 
           <div className="bg-slate-950 border border-slate-800/80 rounded-2xl p-4 flex items-center gap-4">
-            <div className="p-3 bg-blue-500/10 text-blue-400 rounded-xl">
+            <div className="p-3 bg-slate-500/10 text-slate-400 rounded-xl">
               <KeyRound className="w-6 h-6" />
             </div>
             <div>
-              <p className="text-xs text-slate-400 font-medium">Kiralık İlan Sayısı</p>
-              <h3 className="text-xl font-bold text-white">{kiralikCount} Adet</h3>
+              <p className="text-xs text-slate-400 font-medium">Pasif İlan</p>
+              <h3 className="text-xl font-bold text-white">{passiveCount} Adet</h3>
             </div>
           </div>
 
           <div className="bg-slate-950 border border-slate-800/80 rounded-2xl p-4 flex items-center gap-4">
             <div className="p-3 bg-amber-500/10 text-amber-400 rounded-xl">
-              <Tag className="w-6 h-6" />
+              <CheckCircle className="w-6 h-6" />
             </div>
             <div>
-              <p className="text-xs text-slate-400 font-medium">Satılık İlan Sayısı</p>
-              <h3 className="text-xl font-bold text-white">{satilikCount} Adet</h3>
+              <p className="text-xs text-slate-400 font-medium">Satılan İlan</p>
+              <h3 className="text-xl font-bold text-white">{soldCount} Adet</h3>
             </div>
           </div>
 
           <div className="bg-slate-950 border border-slate-800/80 rounded-2xl p-4 flex items-center gap-4">
-            <div className="p-3 bg-rose-500/10 text-rose-400 rounded-xl">
-              <CheckCircle className="w-6 h-6" />
+            <div className="p-3 bg-red-500/10 text-red-400 rounded-xl">
+              <X className="w-6 h-6" />
             </div>
             <div>
-              <p className="text-xs text-slate-400 font-medium">Satılan İlan Sayısı</p>
-              <h3 className="text-xl font-bold text-white">{soldCount} Adet</h3>
+              <p className="text-xs text-slate-400 font-medium">Silinen İlan</p>
+              <h3 className="text-xl font-bold text-white">{deletedCount} Adet</h3>
+            </div>
+          </div>
+
+          <div className="bg-slate-950 border border-slate-800/80 rounded-2xl p-4 flex items-center gap-4">
+            <div className="p-3 bg-blue-500/10 text-blue-400 rounded-xl">
+              <Tag className="w-6 h-6" />
+            </div>
+            <div>
+              <p className="text-xs text-slate-400 font-medium">Kiralık</p>
+              <h3 className="text-xl font-bold text-white">{kiralikCount} Adet</h3>
             </div>
           </div>
         </div>
@@ -378,10 +521,10 @@ export default function App() {
               <p className="text-sm text-slate-400">Aktif filtrelenen {filteredProperties.length} gayrimenkul</p>
             </div>
 
-            <div className="flex bg-slate-950 border border-slate-800 rounded-xl p-1">
+            <div className="flex bg-slate-950 border border-slate-800 rounded-xl p-1 flex-wrap gap-1">
               <button
                 onClick={() => setActiveTab('active')}
-                className={`px-4 py-2 rounded-lg text-xs font-semibold transition ${
+                className={`px-3 py-2 rounded-lg text-xs font-semibold transition ${
                   activeTab === 'active'
                     ? 'bg-emerald-600 text-white'
                     : 'text-slate-400 hover:text-white'
@@ -390,14 +533,34 @@ export default function App() {
                 Aktif ({totalListings})
               </button>
               <button
+                onClick={() => setActiveTab('passive')}
+                className={`px-3 py-2 rounded-lg text-xs font-semibold transition ${
+                  activeTab === 'passive'
+                    ? 'bg-slate-600 text-white'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                Pasif ({passiveCount})
+              </button>
+              <button
                 onClick={() => setActiveTab('sold')}
-                className={`px-4 py-2 rounded-lg text-xs font-semibold transition ${
+                className={`px-3 py-2 rounded-lg text-xs font-semibold transition ${
                   activeTab === 'sold'
-                    ? 'bg-emerald-600 text-white'
+                    ? 'bg-amber-600 text-white'
                     : 'text-slate-400 hover:text-white'
                 }`}
               >
                 Satılan ({soldCount})
+              </button>
+              <button
+                onClick={() => setActiveTab('deleted')}
+                className={`px-3 py-2 rounded-lg text-xs font-semibold transition ${
+                  activeTab === 'deleted'
+                    ? 'bg-red-600 text-white'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                Silinen ({deletedCount})
               </button>
             </div>
           </div>
@@ -578,15 +741,31 @@ export default function App() {
                   </span>
                 )}
               </div>
-              <div className="flex items-center gap-2">
-                {selectedProperty.status !== 'Satıldı' ? (
-                  <button
-                    onClick={() => markAsSold(selectedProperty.id, selectedProperty.title)}
-                    className="flex items-center gap-1.5 px-3 py-2 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/20 rounded-lg text-xs font-semibold transition"
-                  >
-                    <CheckCircle className="w-3.5 h-3.5" />
-                    <span>Satıldı Olarak İşaretle</span>
-                  </button>
+              <div className="flex items-center gap-2 flex-wrap">
+                {selectedProperty.status === 'Aktif' ? (
+                  <>
+                    <button
+                      onClick={() => markAsSold(selectedProperty.id, selectedProperty.title)}
+                      className="flex items-center gap-1.5 px-3 py-2 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/20 rounded-lg text-xs font-semibold transition"
+                    >
+                      <CheckCircle className="w-3.5 h-3.5" />
+                      <span>Satıldı</span>
+                    </button>
+                    <button
+                      onClick={() => markAsPassive(selectedProperty.id, selectedProperty.title)}
+                      className="flex items-center gap-1.5 px-3 py-2 bg-slate-500/10 hover:bg-slate-500/20 text-slate-400 border border-slate-500/20 rounded-lg text-xs font-semibold transition"
+                    >
+                      <RefreshCw className="w-3.5 h-3.5" />
+                      <span>Pasife Al</span>
+                    </button>
+                    <button
+                      onClick={() => deleteProperty(selectedProperty.id, selectedProperty.title)}
+                      className="flex items-center gap-1.5 px-3 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 rounded-lg text-xs font-semibold transition"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                      <span>Sil</span>
+                    </button>
+                  </>
                 ) : (
                   <button
                     onClick={() => markAsActive(selectedProperty.id, selectedProperty.title)}
