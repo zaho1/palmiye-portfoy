@@ -463,6 +463,13 @@ export default function App() {
 
       {/* ANA İÇERİK ALANI */}
       <main className="flex-1 p-6 md:p-8 overflow-y-auto">
+        {/* ÜST BAŞLIK ALANI */}
+        <div className="mb-6">
+          <h1 className="text-xl font-bold text-white tracking-wide">
+            Palmiye Yatırım <span className="text-slate-500 font-normal">|</span> <span className="text-emerald-400 font-medium text-lg">Danışman Paneli</span>
+          </h1>
+          <p className="text-xs text-slate-400 mt-0.5">Yalova Gayrimenkul Portföy Yönetimi ve İlan Takibi</p>
+        </div>
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 mb-8">
           <div className="bg-slate-950 border border-slate-800/80 rounded-2xl p-4 flex items-center gap-4">
             <div className="p-3 bg-emerald-500/10 text-emerald-400 rounded-xl">
@@ -518,7 +525,6 @@ export default function App() {
         <header className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 mb-8">
           <div className="flex items-center gap-4">
             <div>
-              <h2 className="text-2xl font-bold text-white">Palmiye Yatırım | Danışman Paneli</h2>
               <p className="text-sm text-slate-400">Aktif filtrelenen {filteredProperties.length} gayrimenkul</p>
             </div>
 
