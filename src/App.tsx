@@ -160,7 +160,7 @@ export default function App() {
 
     // Google Sheets'e de güncelle
     try {
-      const SHEET_API_URL = 'https://script.google.com/macros/s/AKfycbxFvl2PyF2bDO5Lj6ZR1zingL8P25CTYPxIyJVZNsq6uGmRoN-IYlSW2e7aLviUs6is/exec';
+      const SHEET_API_URL = 'https://script.google.com/macros/s/AKfycbxrz5C7MO9i1Xrer7fxclyAIV-UHNjJ1bCr99BkWaZ6fKmbi9FhUkpEHoSKZbFlP0kAUg/exec';
 
       await fetch(SHEET_API_URL, {
         method: 'POST',
@@ -192,7 +192,7 @@ export default function App() {
 
     // Google Sheets'e de güncelle
     try {
-      const SHEET_API_URL = 'https://script.google.com/macros/s/AKfycbxFvl2PyF2bDO5Lj6ZR1zingL8P25CTYPxIyJVZNsq6uGmRoN-IYlSW2e7aLviUs6is/exec';
+      const SHEET_API_URL = 'https://script.google.com/macros/s/AKfycbxrz5C7MO9i1Xrer7fxclyAIV-UHNjJ1bCr99BkWaZ6fKmbi9FhUkpEHoSKZbFlP0kAUg/exec';
 
       await fetch(SHEET_API_URL, {
         method: 'POST',
@@ -849,7 +849,7 @@ function AddListingForm({ onSuccess, onCancel }: { onSuccess: () => void; onCanc
     setSubmitting(true);
 
     try {
-      const SHEET_API_URL = 'https://script.google.com/macros/s/AKfycbxFvl2PyF2bDO5Lj6ZR1zingL8P25CTYPxIyJVZNsq6uGmRoN-IYlSW2e7aLviUs6is/exec';
+      const SHEET_API_URL = 'https://script.google.com/macros/s/AKfycbxrz5C7MO9i1Xrer7fxclyAIV-UHNjJ1bCr99BkWaZ6fKmbi9FhUkpEHoSKZbFlP0kAUg/exec';
 
       // Görselleri ||| ile birleştir (tek ilan için)
       const imagesToUse = uploadedImages.length > 0 ? uploadedImages : [formData.imageUrl].filter((img: string) => img);
