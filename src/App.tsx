@@ -20,7 +20,9 @@ import {
   Filter,
   KeyRound,
   Plus,
-  CheckCircle
+  CheckCircle,
+  Upload,
+  Trash2
 } from 'lucide-react';
 import type { Property } from './types';
 import Login from './components/Login';
@@ -62,22 +64,29 @@ export default function App() {
       header: true,
       skipEmptyLines: true,
       complete: (results) => {
-        const parsedData: Property[] = results.data.map((row: any, index: number) => ({
-          id: `PLM-${101 + index}`,
-          title: row['İlan Başlığı'] || 'Başlıksız İlan',
-          price: row['Fiyat'] || '0 TL',
-          category: row['Kategori'] || 'Diğer',
-          imarStatus: row['İmar Durumu'] || '',
-          size: row['m²'] || '',
-          description: row['Açıklama'] || '',
-          imageUrl: row['Görsel URL'] || FALLBACK_IMAGE,
-          sahibindenUrl: row['Sahibinden Linki'] || '',
-          adaParsel: row['Ada/Parsel'] || '',
-          agentName: row['Danışman Bilgileri'] || 'Palmiye Danışmanı',
-          agentPhone: row['Danışmanın Telefon Numarası'] || '',
-          whatsappUrl: row['WhatsApp Link'] || '',
-          status: row['Durum'] || 'Aktif'
-        }));
+        const parsedData: Property[] = results.data.map((row: any, index: number) => {
+          // Görselleri ||| ile ayırarak işlem
+          const imagesString = row['Görsel URL'] || '';
+          const images = imagesString.split('|||').filter((img: string) => img.trim());
+          const firstImage = images.length > 0 ? images[0] : FALLBACK_IMAGE;
+
+          return {
+            id: `PLM-${101 + index}`,
+            title: row['İlan Başlığı'] || 'Başlıksız İlan',
+            price: row['Fiyat'] || '0 TL',
+            category: row['Kategori'] || 'Diğer',
+            imarStatus: row['İmar Durumu'] || '',
+            size: row['m²'] || '',
+            description: row['Açıklama'] || '',
+            imageUrl: firstImage,
+            sahibindenUrl: row['Sahibinden Linki'] || '',
+            adaParsel: row['Ada/Parsel'] || '',
+            agentName: row['Danışman Bilgileri'] || 'Palmiye Danışmanı',
+            agentPhone: row['Danışmanın Telefon Numarası'] || '',
+            whatsappUrl: row['WhatsApp Link'] || '',
+            status: row['Durum'] || 'Aktif'
+          };
+        });
 
         setProperties(parsedData.filter(item => item.title && item.status.trim() !== 'Pasif'));
         setLoading(false);
@@ -748,6 +757,44 @@ function AddListingForm({ onSuccess, onCancel }: { onSuccess: () => void; onCanc
     whatsappUrl: ''
   });
   const [submitting, setSubmitting] = useState(false);
+  const [uploadedImages, setUploadedImages] = useState<string[]>([]);
+  const [uploading, setUploading] = useState(false);
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    const totalImages = uploadedImages.length + files.length;
+    if (totalImages > 20) {
+      alert('Maksimum 20 görsel yükleyebilirsiniz.');
+      return;
+    }
+
+    setUploading(true);
+
+    const imagePromises = Array.from(files).map((file) => {
+      return new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+    });
+
+    try {
+      const base64Images = await Promise.all(imagePromises);
+      setUploadedImages((prev) => [...prev, ...base64Images]);
+    } catch (error) {
+      console.error('Görsel yükleme hatası:', error);
+      alert('Görseller yüklenirken bir hata oluştu.');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const removeImage = (index: number) => {
+    setUploadedImages((prev) => prev.filter((_, i) => i !== index));
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -755,6 +802,9 @@ function AddListingForm({ onSuccess, onCancel }: { onSuccess: () => void; onCanc
 
     try {
       const SHEET_API_URL = 'https://script.google.com/macros/s/AKfycbxFvl2PyF2bDO5Lj6ZR1zingL8P25CTYPxIyJVZNsq6uGmRoN-IYlSW2e7aLviUs6is/exec';
+
+      // Görselleri virgülle ayırarak birleştir
+      const imagesString = uploadedImages.length > 0 ? uploadedImages.join('|||') : formData.imageUrl;
 
       await fetch(SHEET_API_URL, {
         method: 'POST',
@@ -771,7 +821,7 @@ function AddListingForm({ onSuccess, onCancel }: { onSuccess: () => void; onCanc
             'İmar Durumu': formData.imarStatus,
             'm²': formData.size,
             'Açıklama': formData.description,
-            'Görsel URL': formData.imageUrl,
+            'Görsel URL': imagesString,
             'Sahibinden Linki': formData.sahibindenUrl,
             'Ada/Parsel': formData.adaParsel,
             'Danışman Bilgileri': formData.agentName,
@@ -872,14 +922,56 @@ function AddListingForm({ onSuccess, onCancel }: { onSuccess: () => void; onCanc
         </div>
 
         <div className="md:col-span-2">
-          <label className="block text-xs font-semibold text-slate-400 mb-1.5">Görsel URL</label>
-          <input
-            type="url"
-            value={formData.imageUrl}
-            onChange={(e) => setFormData({ ...formData, imageUrl: e.target.value })}
-            className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-sm text-white focus:outline-none focus:border-emerald-500 transition"
-            placeholder="https://example.com/image.jpg"
-          />
+          <label className="block text-xs font-semibold text-slate-400 mb-1.5">Görseller (Maksimum 20 adet)</label>
+          <div className="space-y-3">
+            <div className="flex items-center gap-3">
+              <input
+                type="file"
+                id="image-upload"
+                multiple
+                accept="image/png,image/jpeg,image/jpg,image/webp"
+                onChange={handleImageUpload}
+                disabled={uploading || uploadedImages.length >= 20}
+                className="hidden"
+              />
+              <label
+                htmlFor="image-upload"
+                className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-slate-950 border-2 border-dashed ${
+                  uploading || uploadedImages.length >= 20
+                    ? 'border-slate-700 cursor-not-allowed opacity-50'
+                    : 'border-slate-700 hover:border-emerald-500 cursor-pointer'
+                } rounded-xl text-sm text-slate-300 transition`}
+              >
+                <Upload className="w-4 h-4" />
+                <span>{uploading ? 'Yükleniyor...' : uploadedImages.length >= 20 ? 'Maksimum sayıya ulaşıldı' : 'Görselleri seçin (PNG, JPG, WebP)'}</span>
+              </label>
+            </div>
+
+            {uploadedImages.length > 0 && (
+              <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2 mt-3">
+                {uploadedImages.map((image, index) => (
+                  <div key={index} className="relative group">
+                    <img
+                      src={image}
+                      alt={`Görsel ${index + 1}`}
+                      className="w-full h-20 object-cover rounded-lg border border-slate-700"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => removeImage(index)}
+                      className="absolute top-1 right-1 p-1 bg-red-500 hover:bg-red-600 text-white rounded-md opacity-0 group-hover:opacity-100 transition"
+                    >
+                      <Trash2 className="w-3 h-3" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div className="text-[10px] text-slate-500">
+              {uploadedImages.length}/20 görsel yüklendi
+            </div>
+          </div>
         </div>
 
         <div>
