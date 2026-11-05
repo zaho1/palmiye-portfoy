@@ -181,13 +181,22 @@ export async function fetchRequests(): Promise<CustomerRequest[]> {
 export async function fetchActivity(): Promise<ActivityEntry[]> {
   const { rows } = await get<{ rows?: Record<string, string>[] }>({ action: 'log' });
   if (!rows) throw new Error("Apps Script v2 yayınlanmamış");
-  return rows.map((r) => ({
-    at: parseDate(r['Tarih']),
-    who: r['Kim'] || '',
-    action: r['İşlem'] || '',
-    title: r['İlan'] || '',
-    detail: r['Detay'] || '',
-  }));
+  return rows.map((r) => {
+    // Detay sütununda noteId olabilir (| ile ayrılmış)
+    const detail = r['Detay'] || '';
+    const parts = detail.split('|');
+    const noteId = parts.length > 1 ? parts[parts.length - 1] : undefined;
+    const cleanDetail = parts.length > 1 ? parts.slice(0, -1).join('|') : detail;
+
+    return {
+      at: parseDate(r['Tarih']),
+      who: r['Kim'] || '',
+      action: r['İşlem'] || '',
+      title: r['İlan'] || '',
+      detail: cleanDetail,
+      noteId: noteId,
+    };
+  });
 }
 
 export async function fetchOwner(title: string, key: string): Promise<OwnerInfo | null> {
@@ -220,6 +229,7 @@ export const updateStatus = (title: string, status: ListingStatus) => post({ act
 export const touchListing = (title: string) => post({ action: 'touch', title });
 export const updatePrice = (title: string, price: string) => post({ action: 'updatePrice', title, price });
 export const addNote = (title: string, note: string) => post({ action: 'addNote', title, note });
+export const deleteNote = (title: string, noteId: string) => post({ action: 'deleteNote', title, noteId });
 export const setLocation = (title: string, location: string) => post({ action: 'setLocation', title, location });
 
 export interface SaleRecord {

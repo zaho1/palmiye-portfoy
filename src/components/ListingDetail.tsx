@@ -33,6 +33,7 @@ export interface DetailActions {
   touch: (p: Property) => void;
   price: (p: Property, price: string) => void;
   note: (p: Property, text: string) => void;
+  deleteNote: (p: Property, noteId: string) => void;
   location: (p: Property, lat: number, lng: number) => void;
 }
 
@@ -45,6 +46,7 @@ interface Props {
   officeKey: string;
   v2Ready: boolean;
   actions: DetailActions;
+  userName: string;
 }
 
 type Pending = null | 'share' | 'sold' | 'delete' | 'price' | 'owner';
@@ -52,7 +54,7 @@ type Pending = null | 'share' | 'sold' | 'delete' | 'price' | 'owner';
 const SALE_SOURCES = ['Sahibinden', 'Instagram', 'Tabela / ofis', 'Tavsiye', 'Portföy paylaşımı', 'Diğer'];
 const EMPTY_OWNER: OwnerInfo = { name: '', phone: '', authorization: '', authorizationEnd: '', commission: '', keyLocation: '', note: '' };
 
-export default function ListingDetail({ property: p, properties, presentMode, requests, activity, officeKey, v2Ready, actions }: Props) {
+export default function ListingDetail({ property: p, properties, presentMode, requests, activity, officeKey, v2Ready, actions, userName }: Props) {
   const images = p.images?.length ? p.images : [];
   const [index, setIndex] = useState(0);
   const [pending, setPending] = useState<Pending>(null);
@@ -351,7 +353,17 @@ export default function ListingDetail({ property: p, properties, presentMode, re
                         </p>
                         <p className="text-xs text-faint">{a.who}</p>
                       </div>
-                      <span className="text-xs text-faint num whitespace-nowrap">{formatDateTime(a.at)}</span>
+                      <div className="flex items-center gap-2">
+                        {a.noteId && a.who === userName && (
+                          <button
+                            onClick={() => actions.deleteNote(p, a.noteId!)}
+                            className="text-xs text-muted hover:text-negative transition-colors"
+                          >
+                            Sil
+                          </button>
+                        )}
+                        <span className="text-xs text-faint num whitespace-nowrap">{formatDateTime(a.at)}</span>
+                      </div>
                     </li>
                   ))}
                 </ul>

@@ -63,4 +63,5 @@ export interface ActivityEntry {
   action: string;
   title: string;
   detail: string;
+  noteId?: string;
 }

@@ -87,10 +87,11 @@ export default function ListingList({ properties, requests, activity, scope, pre
     return properties;
   }, [properties, scope, mineKey, favorites]);
 
-  const kinds = useMemo(
-    () => Array.from(new Set(scoped.map((p) => kindOf(p.category)).filter(Boolean))).sort((a, b) => a.localeCompare(b, 'tr')),
-    [scoped],
-  );
+  const kinds = useMemo(() => {
+    const base = ['Daire', 'Arsa', 'İşyeri'];
+    const dynamic = Array.from(new Set(scoped.map((p) => kindOf(p.category)).filter(Boolean)));
+    return Array.from(new Set([...base, ...dynamic])).sort((a, b) => a.localeCompare(b, 'tr'));
+  }, [scoped]);
 
   const regionChips = useMemo(() => {
     const extra = scoped.some((p) => p.region === 'Belirtilmemiş') ? ['Belirtilmemiş'] : [];
@@ -210,7 +211,7 @@ export default function ListingList({ properties, requests, activity, scope, pre
       </div>
 
       {/* Özet: tek kart, 1px ayraçlarla bölünmüş. Telefonda yalnızca iş çıkaran üç kutu. */}
-      <section aria-label="Özet" className="bg-surface rounded-xl grid grid-cols-3 lg:grid-cols-5 [&>*]:p-3 [&>*]:lg:p-4 [&>*]:lg:px-5 divide-x divide-rule">
+      <section aria-label="Özet" className="bg-surface rounded-xl grid grid-cols-3 lg:grid-cols-5 [&>*]:p-2 [&>*]:lg:p-2.5 divide-x divide-rule">
         <Kpi label="Aktif ilan" value={pending ? '—' : active.length} sub={`${active.length - activeRent} satılık · ${activeRent} kiralık`} />
         <Kpi className="hidden lg:block" label="Bu ay eklenen" value={hasDates ? addedThisMonth : '—'} sub={hasDates ? 'Eklenme tarihine göre' : 'Tarih yeni ilanlardan itibaren tutulur'} />
         <Kpi className="hidden lg:block" label="Bu ay satılan / kiralanan" value={hasDates ? soldThisMonth : '—'} sub={`Toplam ${soldTotal}`} />
@@ -349,9 +350,9 @@ export default function ListingList({ properties, requests, activity, scope, pre
 function Kpi({ label, value, sub, warn = false, className = '' }: { label: string; value: number | string; sub: string; warn?: boolean; className?: string }) {
   return (
     <div className={className}>
-      <p className="text-xs lg:text-sm text-muted">{label}</p>
-      <p className={`text-xl lg:text-2xl font-semibold num mt-1 ${warn ? 'text-warning' : ''}`}>{value}</p>
-      <p className="hidden lg:block text-xs text-faint mt-0.5">{sub}</p>
+      <p className="text-[11px] lg:text-xs text-muted">{label}</p>
+      <p className={`text-lg lg:text-xl font-semibold num mt-0.5 ${warn ? 'text-warning' : ''}`}>{value}</p>
+      <p className="hidden lg:block text-[11px] text-faint mt-0">{sub}</p>
     </div>
   );
 }

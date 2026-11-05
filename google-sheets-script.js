@@ -168,7 +168,27 @@ function doPost(e) {
     }
 
     if (data.action === 'addNote') {
-      log_(who, 'Not', data.title, data.note);
+      var noteId = 'N-' + new Date().getTime().toString(36).toUpperCase();
+      log_(who, 'Not', data.title, data.note + '|' + noteId);
+      return json_({ success: true, noteId: noteId });
+    }
+
+    if (data.action === 'deleteNote') {
+      // Hareketler sayfasından notu bul ve sil
+      var sh = sheet_('Hareketler', ['Tarih', 'Kim', 'İşlem', 'İlan', 'Detay']);
+      var lastRow = sh.getLastRow();
+      var dataRange = sh.getDataRange();
+      var values = dataRange.getValues();
+
+      // Not ID'sini bul (Detay sütununda | ile ayrılmış)
+      for (var i = values.length - 1; i >= 1; i--) {
+        var detail = String(values[i][4] || '');
+        if (detail.includes(data.noteId) && String(values[i][3] || '') === String(data.title)) {
+          sh.deleteRow(i + 1);
+          log_(who, 'Not silindi', data.title, '');
+          break;
+        }
+      }
       return json_({ success: true });
     }
 

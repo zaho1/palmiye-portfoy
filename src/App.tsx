@@ -5,6 +5,7 @@ import {
   addNote,
   addRequest,
   closeRequest,
+  deleteNote,
   fetchActivity,
   fetchProperties,
   fetchRequests,
@@ -257,6 +258,10 @@ export default function App() {
         logLocal('Not', p.title, text);
         write(() => addNote(p.title, text), () => setActivity((prev) => prev.slice(1)), 'Not');
       },
+      deleteNote: (p: Property, noteId: string) => {
+        setActivity((prev) => prev.filter((a) => a.noteId !== noteId));
+        write(() => deleteNote(p.title, noteId), () => setToast({ message: 'Not silinemedi.' }), 'Not');
+      },
       location: (p: Property, lat: number, lng: number) => {
         const before = { lat: p.lat, lng: p.lng };
         patch(p.id, { lat, lng });
@@ -436,6 +441,7 @@ export default function App() {
                 officeKey={officeKey}
                 v2Ready={v2Ready}
                 actions={actions}
+                userName={userName}
               />
             ) : loading ? (
               <p className="text-muted">İlan yükleniyor…</p>
