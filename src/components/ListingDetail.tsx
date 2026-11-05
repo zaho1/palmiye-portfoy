@@ -47,6 +47,7 @@ interface Props {
   v2Ready: boolean;
   actions: DetailActions;
   userName: string;
+  currentUser: string;
 }
 
 type Pending = null | 'share' | 'sold' | 'delete' | 'price' | 'owner';
@@ -54,7 +55,7 @@ type Pending = null | 'share' | 'sold' | 'delete' | 'price' | 'owner';
 const SALE_SOURCES = ['Sahibinden', 'Instagram', 'Tabela / ofis', 'Tavsiye', 'Portföy paylaşımı', 'Diğer'];
 const EMPTY_OWNER: OwnerInfo = { name: '', phone: '', authorization: '', authorizationEnd: '', commission: '', keyLocation: '', note: '' };
 
-export default function ListingDetail({ property: p, properties, presentMode, requests, activity, officeKey, v2Ready, actions, userName }: Props) {
+export default function ListingDetail({ property: p, properties, presentMode, requests, activity, officeKey, v2Ready, actions, userName, currentUser }: Props) {
   const images = p.images?.length ? p.images : [];
   const [index, setIndex] = useState(0);
   const [pending, setPending] = useState<Pending>(null);
@@ -354,7 +355,7 @@ export default function ListingDetail({ property: p, properties, presentMode, re
                         <p className="text-xs text-faint">{a.who}</p>
                       </div>
                       <div className="flex items-center gap-2">
-                        {a.action === 'Not' && a.who === userName && (
+                        {a.action === 'Not' && (a.who === userName || a.who === currentUser) && (
                           <button
                             onClick={() => actions.deleteNote(p, a.at?.getTime() ? String(a.at.getTime()) : `${a.at}-${a.who}-${a.detail}`)}
                             className="text-xs text-muted hover:text-negative transition-colors"

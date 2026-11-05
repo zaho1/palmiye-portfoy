@@ -442,6 +442,7 @@ export default function App() {
                 v2Ready={v2Ready}
                 actions={actions}
                 userName={userName}
+                currentUser={currentUser ?? ''}
               />
             ) : loading ? (
               <p className="text-muted">İlan yükleniyor…</p>

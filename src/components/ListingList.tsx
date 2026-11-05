@@ -202,7 +202,6 @@ export default function ListingList({ properties, requests, activity, scope, pre
               : scope === 'favorites'
                 ? 'Yıldızladığınız ilanlar bu cihazda saklanır.'
                 : 'Yalova · bütün danışmanların ilanları tek listede.'}
-            {!loading && scope !== 'favorites' && finding.length > 0 && <span className="text-warning"> {finding.join(', ')}.</span>}
           </p>
         </div>
         <a href="#/yeni" className="h-9 px-4 rounded-full bg-ink text-ground text-sm font-semibold flex items-center gap-2 hover:bg-muted transition-colors lg:hidden">
@@ -319,6 +318,11 @@ export default function ListingList({ properties, requests, activity, scope, pre
       </div>
 
       {/* İçerik */}
+      {!loading && scope !== 'favorites' && finding.length > 0 && (
+        <div className="rounded-lg bg-warning-bg px-3 py-2 text-sm text-warning">
+          {finding.join(', ')}.
+        </div>
+      )}
       {loadError ? (
         <div className="rounded-lg border border-dashed border-control px-4 py-3 text-muted flex flex-wrap items-center gap-3">
           <span>Google Sheets verileri yüklenemedi. İnternet bağlantısını veya tablonun yayın ayarını kontrol edin.</span>
