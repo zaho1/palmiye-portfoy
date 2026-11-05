@@ -1,106 +1,101 @@
 import { useState } from 'react';
-import { Lock, Mail, ArrowRight, ShieldCheck } from 'lucide-react';
+import { ArrowRight, Eye, EyeOff, Moon, Sun } from 'lucide-react';
 import { OFFICE_AUTH_CONFIG } from '../config/auth';
+import { useSettings } from '../lib/settings';
 
 interface LoginProps {
-  onLoginSuccess: (email: string) => void;
+  onLoginSuccess: (email: string, password: string, remember: boolean) => void;
 }
 
 export default function Login({ onLoginSuccess }: LoginProps) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [remember, setRemember] = useState(true);
   const [error, setError] = useState('');
+  const [showForgot, setShowForgot] = useState(false);
+  const { resolvedTheme, update } = useSettings();
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
 
     const cleanEmail = email.trim().toLowerCase();
-
-    // 1. Liste Kontrolü
-    const isUserAllowed = OFFICE_AUTH_CONFIG.allowedUsers.some(
-      u => u.email.toLowerCase() === cleanEmail
-    );
+    const isUserAllowed = OFFICE_AUTH_CONFIG.allowedUsers.some((u) => u.email.toLowerCase() === cleanEmail);
 
     if (!isUserAllowed) {
-      setError('Bu e-posta adresi yetkili kullanıcı listesinde bulunamadı!');
+      setError('Bu e-posta yetkili danışman listesinde yok. Ofis yöneticisine yazın.');
       return;
     }
-
-    // 2. Şifre Kontrolü
-    if (password === OFFICE_AUTH_CONFIG.defaultPassword) {
-      onLoginSuccess(cleanEmail);
-    } else {
-      setError('Girdiğiniz şifre hatalı!');
+    if (password !== OFFICE_AUTH_CONFIG.defaultPassword) {
+      setError('Şifre hatalı.');
+      return;
     }
+    onLoginSuccess(cleanEmail, password, remember);
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4">
-      <div className="w-full max-w-md bg-slate-900/90 border border-slate-800 p-8 rounded-2xl shadow-2xl backdrop-blur-xl">
-        <div className="text-center mb-8">
-          <div className="flex justify-center mb-4">
-            <img 
-              src="/logo.png" 
-              alt="Palmiye Yatırım" 
-              className="h-20 w-auto object-contain drop-shadow-md" 
-            />
-          </div>
-          <h2 className="text-2xl font-bold text-white tracking-wider">PALMİYE YATIRIM</h2>
-          <p className="text-xs text-emerald-400 mt-1 font-medium">Yalova Gayrimenkul Portföy Paneli</p>
+    <div className="relative min-h-screen bg-ground px-6 py-12 flex items-center justify-center">
+      <button
+        onClick={() => update({ theme: resolvedTheme === 'dark' ? 'light' : 'dark' })}
+        aria-label={resolvedTheme === 'dark' ? 'Açık temaya geç' : 'Koyu temaya geç'}
+        className="absolute right-4 top-4 w-10 h-10 rounded-full flex items-center justify-center text-muted hover:text-ink hover:bg-surface"
+      >
+        {resolvedTheme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+      </button>
+
+      <main className="w-full max-w-[380px]">
+        <div className="flex flex-col items-center text-center mb-10">
+          <img src="/logo.png" alt="Palmiye Yatırım" className="h-16 w-auto logo-chip" />
+          <p className="mt-4 text-base font-semibold">Palmiye Yatırım</p>
+          <p className="text-sm text-muted">Yalova · ofis portföy paneli</p>
         </div>
 
-        {error && (
-          <div className="mb-6 p-3 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-sm text-center">
-            {error}
-          </div>
-        )}
+        <h1 className="text-xl font-semibold">Danışman girişi</h1>
+        <p className="text-muted mt-1 mb-8">Ofis e-postanız ve ofis şifresiyle girin.</p>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4" noValidate>
           <div>
-            <label className="block text-xs font-medium text-slate-400 mb-1.5">E-Posta Adresiniz</label>
-            <div className="relative">
-              <Mail className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
-              <input
-                type="email"
-                required
-                placeholder="ornek@palmiyeyatirim.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full pl-10 pr-4 py-3 bg-slate-950 border border-slate-800 rounded-xl text-sm text-white focus:outline-none focus:border-emerald-500 transition"
-              />
-            </div>
+            <label htmlFor="email" className="block text-sm font-medium mb-2">E-posta</label>
+            <input id="email" type="email" autoComplete="username" required placeholder="ornek@palmiyeyatirim.com" value={email} onChange={(e) => setEmail(e.target.value)} className="field" />
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-slate-400 mb-1.5">Ofis Giriş Şifresi</label>
-            <div className="relative">
-              <Lock className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
-              <input
-                type="password"
-                required
-                placeholder="••••••••"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full pl-10 pr-4 py-3 bg-slate-950 border border-slate-800 rounded-xl text-sm text-white focus:outline-none focus:border-emerald-500 transition"
-              />
+            <div className="flex items-baseline justify-between mb-2">
+              <label htmlFor="password" className="text-sm font-medium">Ofis şifresi</label>
+              <button type="button" onClick={() => setShowForgot((v) => !v)} className="text-sm text-muted hover:text-ink underline underline-offset-2">
+                Şifremi unuttum
+              </button>
             </div>
+            <div className="relative">
+              <input id="password" type={showPassword ? 'text' : 'password'} autoComplete="current-password" required value={password} onChange={(e) => setPassword(e.target.value)} className="field pr-12" />
+              <button
+                type="button"
+                onClick={() => setShowPassword((v) => !v)}
+                aria-label={showPassword ? 'Şifreyi gizle' : 'Şifreyi göster'}
+                className="absolute right-0 top-0 h-10 w-11 flex items-center justify-center text-muted hover:text-ink"
+              >
+                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
+            </div>
+            {showForgot && <p className="mt-2 text-sm text-muted">Ofis şifresini ofis yöneticisinden isteyin. Yeni danışman hesabı da yönetici tarafından açılır.</p>}
           </div>
 
-          <button
-            type="submit"
-            className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold shadow-lg shadow-emerald-900/30 transition flex items-center justify-center gap-2 mt-2"
-          >
-            <span>Panele Giriş Yap</span>
+          <label className="flex items-center gap-3 min-h-11 text-sm cursor-pointer">
+            <input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)} className="w-4 h-4 accent-[var(--accent)]" />
+            Bu cihazda oturumum açık kalsın
+          </label>
+
+          {error && <p role="alert" className="text-sm text-negative">{error}</p>}
+
+          <button type="submit" className="w-full h-11 rounded-full bg-ink text-ground font-semibold flex items-center justify-center gap-2 hover:bg-muted transition-colors">
+            Panele gir
             <ArrowRight className="w-4 h-4" />
           </button>
         </form>
 
-        <div className="mt-8 pt-6 border-t border-slate-800/80 flex items-center justify-center gap-2 text-[11px] text-slate-500">
-          <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
-          <span>Yetkili Ofis Danışman Paneli</span>
-        </div>
-      </div>
+        <p className="text-xs text-faint mt-10">Yalnızca Palmiye Yatırım danışmanları içindir. Ortak bilgisayarda “oturumum açık kalsın” seçimini kaldırın.</p>
+      </main>
     </div>
   );
 }
