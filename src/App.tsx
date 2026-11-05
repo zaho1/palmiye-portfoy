@@ -394,7 +394,6 @@ export default function App() {
               {presentMode ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
               <span className="hidden sm:inline">{presentMode ? 'Sunum modu açık' : 'Sunum modu'}</span>
             </button>
-            <span className="hidden xl:flex items-center gap-2 self-stretch pl-4 ml-1 border-l border-rule text-sm text-muted">Yalova ofisi</span>
             <button onClick={() => setMenuOpen(true)} aria-label="Menüyü aç" className="lg:hidden w-10 h-10 flex items-center justify-center rounded-full hover:bg-surface">
               <Menu className="w-5 h-5" />
             </button>
