@@ -492,28 +492,6 @@ export default function App() {
                       );
                     })}
                   </div>
-
-                  {/* Son Hareketler */}
-                  {activity.length > 0 && (
-                    <div className="mt-8">
-                      <h3 className="text-lg font-bold text-white mb-4">Son Hareketler</h3>
-                      <div className="space-y-2">
-                        {activity.slice(0, 5).map((entry, idx) => (
-                          <div key={idx} className="bg-slate-950 border border-slate-800 rounded-xl p-3">
-                            <div className="flex items-center justify-between">
-                              <div>
-                                <p className="text-sm font-medium text-white">{entry.action}</p>
-                                <p className="text-xs text-slate-400">{entry.who} - {entry.title}</p>
-                              </div>
-                              <span className="text-xs text-slate-500">
-                                {entry.at ? new Date(entry.at).toLocaleString('tr-TR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : ''}
-                              </span>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
                 </div>
               )}
             </>

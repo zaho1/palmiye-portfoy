@@ -191,7 +191,7 @@ export default function ListingList({ properties, requests, activity, scope, pre
   ].filter(Boolean);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* Başlık satırı */}
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="min-w-0">
@@ -548,47 +548,49 @@ function OfficePanels({ properties, activity }: { properties: Property[]; activi
     return Array.from(m.values()).sort((a, b) => b.sold - a.sold || b.active - a.active).slice(0, 6);
   }, [properties]);
 
+  const filteredActivity = activity.filter((a) => a.action === 'Not' || a.action === 'Durum' || a.action === 'Fiyat');
+
   return (
     <section className="grid lg:grid-cols-2 gap-[14px] pt-4 lg:items-start">
-      <div className="bg-surface rounded-xl p-5">
-        <h2 className="text-base font-semibold">Son hareketler</h2>
-        {activity.length === 0 ? (
-          <p className="mt-3 text-sm text-muted">Henüz kayıt yok. İlan ekleme, fiyat ve durum değişiklikleri burada görünür.</p>
+      <div className="bg-surface rounded-xl p-3">
+        <h2 className="text-sm font-semibold">Son hareketler</h2>
+        {filteredActivity.length === 0 ? (
+          <p className="mt-2 text-xs text-muted">Henüz kayıt yok.</p>
         ) : (
           <ul className="mt-2">
-            {activity.slice(0, 6).map((a, i) => (
-              <li key={i} className="flex gap-3 py-2 border-t border-rule first:border-t-0 text-sm">
+            {filteredActivity.slice(0, 4).map((a, i) => (
+              <li key={i} className="flex gap-2 py-1.5 border-t border-rule first:border-t-0 text-xs">
                 <div className="min-w-0 flex-1">
                   <p className="truncate">
                     <span className="font-medium">{a.action}</span>
                     {a.title && <span className="text-muted"> · {a.title}</span>}
                   </p>
-                  <p className="text-xs text-faint truncate">{[a.who, a.detail].filter(Boolean).join(' · ')}</p>
+                  <p className="text-[11px] text-faint truncate">{[a.who, a.detail].filter(Boolean).join(' · ')}</p>
                 </div>
-                <span className="text-xs text-faint num whitespace-nowrap">{formatDateTime(a.at)}</span>
+                <span className="text-[11px] text-faint num whitespace-nowrap">{formatDateTime(a.at)}</span>
               </li>
             ))}
           </ul>
         )}
       </div>
-      <div className="bg-surface rounded-xl p-5">
-        <h2 className="text-base font-semibold">Danışmanlar</h2>
-        <table className="w-full mt-2 text-sm">
+      <div className="bg-surface rounded-xl p-3">
+        <h2 className="text-sm font-semibold">Danışmanlar</h2>
+        <table className="w-full mt-2 text-xs">
           <thead>
-            <tr className="text-xs text-faint">
+            <tr className="text-[11px] text-faint">
               <th className="sr-only">Sıra</th>
-              <th className="font-normal text-left h-7">Danışman</th>
-              <th className="font-normal text-right h-7">Aktif</th>
-              <th className="font-normal text-right h-7">Satılan</th>
+              <th className="font-normal text-left h-6">Danışman</th>
+              <th className="font-normal text-right h-6">Aktif</th>
+              <th className="font-normal text-right h-6">Satılan</th>
             </tr>
           </thead>
           <tbody>
             {agents.map((a, i) => (
               <tr key={a.name} className="border-t border-rule">
-                <td className="py-2 w-6 text-faint num">{i + 1}</td>
-                <td className="py-2 truncate">{a.name}</td>
-                <td className="py-2 text-right num w-16">{a.active}</td>
-                <td className="py-2 text-right num w-16">{a.sold}</td>
+                <td className="py-1.5 w-6 text-faint num">{i + 1}</td>
+                <td className="py-1.5 truncate">{a.name}</td>
+                <td className="py-1.5 text-right num w-14">{a.active}</td>
+                <td className="py-1.5 text-right num w-14">{a.sold}</td>
               </tr>
             ))}
           </tbody>

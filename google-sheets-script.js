@@ -180,13 +180,29 @@ function doPost(e) {
       var dataRange = sh.getDataRange();
       var values = dataRange.getValues();
 
-      // Not ID'sini bul (Detay sütununda | ile ayrılmış)
+      // Not ID'sini bul (Detay sütununda | ile ayrılmış) veya eski notları tarih + kim + detay ile eşleştir
       for (var i = values.length - 1; i >= 1; i--) {
         var detail = String(values[i][4] || '');
-        if (detail.includes(data.noteId) && String(values[i][3] || '') === String(data.title)) {
+        var action = String(values[i][2] || '');
+        var rowTitle = String(values[i][3] || '');
+        var rowWho = String(values[i][1] || '');
+        var rowDate = String(values[i][0] || '');
+
+        // Yeni notlar: noteId ile eşleştir
+        if (detail.includes(data.noteId) && rowTitle === String(data.title)) {
           sh.deleteRow(i + 1);
           log_(who, 'Not silindi', data.title, '');
           break;
+        }
+        // Eski notlar: action = Not, title eşleşir, detail eşleşir, who eşleşir
+        if (action === 'Not' && rowTitle === String(data.title) && detail === data.noteId && rowWho === who) {
+          sh.deleteRow(i + 1);
+          log_(who, 'Not silindi', data.title, '');
+          break;
+        }
+      }
+      return json_({ success: true });
+    }
         }
       }
       return json_({ success: true });
