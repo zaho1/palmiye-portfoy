@@ -203,10 +203,6 @@ function doPost(e) {
       }
       return json_({ success: true });
     }
-        }
-      }
-      return json_({ success: true });
-    }
 
     if (data.action === 'saveOwner') {
       if (data.key !== OFFICE_KEY) return json_({ success: false, message: 'Yetkisiz' });
