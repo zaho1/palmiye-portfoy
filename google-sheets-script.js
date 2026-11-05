@@ -191,13 +191,11 @@ function doPost(e) {
         // Yeni notlar: noteId ile eşleştir
         if (detail.includes(data.noteId) && rowTitle === String(data.title)) {
           sh.deleteRow(i + 1);
-          log_(who, 'Not silindi', data.title, '');
           break;
         }
         // Eski notlar: action = Not, title eşleşir, detail eşleşir, who eşleşir
         if (action === 'Not' && rowTitle === String(data.title) && detail === data.noteId && rowWho === who) {
           sh.deleteRow(i + 1);
-          log_(who, 'Not silindi', data.title, '');
           break;
         }
       }
