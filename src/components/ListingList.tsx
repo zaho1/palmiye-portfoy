@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Heart, LayoutGrid, List, MessageCircle, Phone, Plus } from 'lucide-react';
+import { Heart, LayoutGrid, List, Plus } from 'lucide-react';
 import type { ActivityEntry, CustomerRequest, ListingStatus, Property } from '../types';
 import {
   REGIONS,
@@ -346,7 +346,7 @@ export default function ListingList({ properties, requests, activity, scope, pre
         <Table rows={rows} presentMode={presentMode} matchCount={matchCount} staleDays={staleDays} />
       )}
 
-      {scope === 'all' && !quick && !loading && <OfficePanels properties={properties} activity={activity} />}
+      {scope === 'all' && !quick && !loading && <OfficePanels activity={activity} />}
     </div>
   );
 }
@@ -534,34 +534,16 @@ function Gallery({ rows, presentMode, matchCount, staleDays }: { rows: Property[
   );
 }
 
-// Alt paneller: son hareketler ve danışman tablosu. İkisi de 6 satırla sınırlı ki aynı hizada bitsinler.
-function OfficePanels({ properties, activity }: { properties: Property[]; activity: ActivityEntry[] }) {
-  const [searchQuery, setSearchQuery] = useState('');
-
-  const agents = useMemo(() => {
-    const m = new Map<string, { name: string; active: number; sold: number; phone: string }>();
-    properties.forEach((p) => {
-      if (p.status === 'Silindi') return;
-      const a = m.get(p.agentName) ?? { name: p.agentName, active: 0, sold: 0, phone: p.agentPhone || '' };
-      if (p.status === 'Aktif') a.active += 1;
-      if (p.status === 'Satıldı') a.sold += 1;
-      if (p.agentPhone && !a.phone) a.phone = p.agentPhone;
-      m.set(p.agentName, a);
-    });
-    const all = Array.from(m.values()).sort((a, b) => b.sold - a.sold || b.active - a.active);
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLocaleLowerCase('tr');
-      return all.filter((a) => a.name.toLocaleLowerCase('tr').includes(q));
-    }
-    return all.slice(0, 6);
-  }, [properties, searchQuery]);
-
-  const filteredActivity = activity.filter((a) => 
-    a.action === 'Not' || a.action === 'Durum' || a.action === 'Fiyat'
+// Alt panel: sadece son hareketler
+function OfficePanels({ activity }: { activity: ActivityEntry[] }) {
+  const filteredActivity = activity.filter((a) =>
+    a.action === 'Not' || a.action === 'Durum' || a.action === 'Fiyat' ||
+    a.action === 'İlan eklendi' || a.action === 'Satıldı / kiralandı' ||
+    a.action === 'Müşteri talebi eklendi' || a.action === 'Müşteri talebi kapandı'
   );
 
   return (
-    <section className="grid lg:grid-cols-2 gap-[14px] pt-4 lg:items-start">
+    <section className="pt-4">
       <div className="bg-surface rounded-xl p-3">
         <h2 className="text-sm font-semibold">Son hareketler</h2>
         {filteredActivity.length === 0 ? (
@@ -582,53 +564,6 @@ function OfficePanels({ properties, activity }: { properties: Property[]; activi
             ))}
           </ul>
         )}
-      </div>
-      <div className="bg-surface rounded-xl p-3">
-        <div className="flex items-center justify-between gap-2 mb-2">
-          <h2 className="text-sm font-semibold">Danışmanlar</h2>
-          <input
-            type="text"
-            placeholder="Ara..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="field h-7 !w-24 !text-xs !px-2"
-          />
-        </div>
-        <table className="w-full mt-2 text-xs">
-          <thead>
-            <tr className="text-[11px] text-faint">
-              <th className="sr-only">Sıra</th>
-              <th className="font-normal text-left h-6">Danışman</th>
-              <th className="font-normal text-right h-6">Aktif</th>
-              <th className="font-normal text-right h-6">Satılan</th>
-              <th className="sr-only">İletişim</th>
-            </tr>
-          </thead>
-          <tbody>
-            {agents.map((a, i) => (
-              <tr key={a.name} className="border-t border-rule">
-                <td className="py-1.5 w-6 text-faint num">{i + 1}</td>
-                <td className="py-1.5 truncate">{a.name}</td>
-                <td className="py-1.5 text-right num w-14">{a.active}</td>
-                <td className="py-1.5 text-right num w-14">{a.sold}</td>
-                <td className="py-1.5 w-16">
-                  <div className="flex gap-1 justify-end">
-                    {a.phone && (
-                      <>
-                        <a href={`tel:${a.phone.replace(/[^0-9+]/g, '')}`} className="w-6 h-6 rounded bg-raised flex items-center justify-center text-faint hover:text-ink hover:bg-active transition-colors" title="Ara">
-                          <Phone className="w-3 h-3" />
-                        </a>
-                        <a href={`https://wa.me/${a.phone.replace(/[^0-9]/g, '')}`} target="_blank" rel="noreferrer" className="w-6 h-6 rounded bg-raised flex items-center justify-center text-faint hover:text-ink hover:bg-active transition-colors" title="WhatsApp">
-                          <MessageCircle className="w-3 h-3" />
-                        </a>
-                      </>
-                    )}
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
       </div>
     </section>
   );

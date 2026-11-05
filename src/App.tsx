@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, Eye, EyeOff, Menu, Search, X } from 'lucide-react';
+import { ArrowLeft, Eye, EyeOff, Menu, MessageCircle, Phone, Search, X } from 'lucide-react';
 import type { ActivityEntry, CustomerRequest, ListingStatus, Property } from './types';
 import {
   addNote,
@@ -97,6 +97,7 @@ export default function App() {
   const [searchTerm, setSearchTerm] = useState('');
   const [presentMode, setPresentMode] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [agentSearch, setAgentSearch] = useState('');
   const [toast, setToast] = useState<ToastState | null>(null);
   const route = useMemo(() => parseHash(hash), [hash]);
 
@@ -467,25 +468,49 @@ export default function App() {
 
               {/* Danışman Paneli - Ana Sayfa Altında */}
               {route.name === 'list' && (
-                <div className="mt-8 border-t border-slate-800 pt-6">
-                  <h3 className="text-lg font-bold text-white mb-4">Danışman Paneli</h3>
+                <div className="mt-8 border-t border-rule pt-6">
+                  <div className="flex items-center justify-between gap-2 mb-4">
+                    <h3 className="text-lg font-bold">Danışman Paneli</h3>
+                    <input
+                      type="text"
+                      placeholder="Danışman ara..."
+                      value={agentSearch}
+                      onChange={(e) => setAgentSearch(e.target.value)}
+                      className="field h-8 !w-48 !text-sm"
+                    />
+                  </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {OFFICE_AUTH_CONFIG.allowedUsers.map((user) => {
+                    {OFFICE_AUTH_CONFIG.allowedUsers
+                      .filter((user) => !agentSearch.trim() || user.name.toLocaleLowerCase('tr').includes(agentSearch.toLocaleLowerCase('tr')))
+                      .map((user) => {
                       const agentCount = properties.filter(p => p.agentName === user.name && p.status === 'Aktif').length;
+                      const agentPhone = properties.find(p => p.agentName === user.name)?.agentPhone || '';
                       return (
-                        <div key={user.email} className="bg-slate-950 border border-slate-800 rounded-xl p-4">
-                          <div className="flex items-center gap-3 mb-2">
-                            <div className="w-10 h-10 bg-emerald-500/20 rounded-full flex items-center justify-center">
-                              <span className="text-emerald-400 font-bold">{user.name.charAt(0)}</span>
+                        <div key={user.email} className="bg-surface rounded-xl p-4">
+                          <div className="flex items-center gap-3 mb-3">
+                            <div className="w-10 h-10 bg-positive-bg rounded-full flex items-center justify-center">
+                              <span className="text-positive font-bold">{user.name.charAt(0)}</span>
                             </div>
-                            <div>
-                              <p className="font-semibold text-white">{user.name}</p>
-                              <p className="text-xs text-slate-400">{user.email}</p>
+                            <div className="min-w-0 flex-1">
+                              <p className="font-semibold truncate">{user.name}</p>
+                              <p className="text-xs text-muted truncate">{user.email}</p>
                             </div>
                           </div>
-                          <div className="flex items-center justify-between">
-                            <span className="text-sm text-slate-400">Aktif Portföy</span>
-                            <span className="text-lg font-bold text-emerald-400">{agentCount}</span>
+                          <div className="flex items-center justify-between mb-3">
+                            <span className="text-sm text-muted">Aktif Portföy</span>
+                            <span className="text-lg font-bold text-accent">{agentCount}</span>
+                          </div>
+                          <div className="flex gap-2">
+                            {agentPhone && (
+                              <>
+                                <a href={`tel:${agentPhone.replace(/[^0-9+]/g, '')}`} className="flex-1 h-8 rounded-lg bg-raised flex items-center justify-center gap-2 text-sm text-muted hover:text-ink hover:bg-active transition-colors">
+                                  <Phone className="w-4 h-4" /> Ara
+                                </a>
+                                <a href={`https://wa.me/${agentPhone.replace(/[^0-9]/g, '')}`} target="_blank" rel="noreferrer" className="flex-1 h-8 rounded-lg bg-raised flex items-center justify-center gap-2 text-sm text-muted hover:text-ink hover:bg-active transition-colors">
+                                  <MessageCircle className="w-4 h-4" /> WhatsApp
+                                </a>
+                              </>
+                            )}
                           </div>
                         </div>
                       );
