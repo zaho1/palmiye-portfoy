@@ -354,9 +354,9 @@ export default function ListingDetail({ property: p, properties, presentMode, re
                         <p className="text-xs text-faint">{a.who}</p>
                       </div>
                       <div className="flex items-center gap-2">
-                        {a.noteId && a.who === userName && (
+                        {a.action === 'Not' && a.who === userName && (
                           <button
-                            onClick={() => actions.deleteNote(p, a.noteId!)}
+                            onClick={() => actions.deleteNote(p, a.at?.getTime() ? String(a.at.getTime()) : `${a.at}-${a.who}-${a.detail}`)}
                             className="text-xs text-muted hover:text-negative transition-colors"
                           >
                             Sil
