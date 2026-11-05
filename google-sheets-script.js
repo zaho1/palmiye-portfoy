@@ -260,3 +260,24 @@ function doGet(e) {
     return json_({ success: false, message: error.toString() });
   }
 }
+
+// Hareketler sayfasındaki "Not silindi" kayıtlarını temizlemek için
+// Apps Script editöründe bu fonksiyonu seçip "Çalıştır" butonuna bas
+function cleanDeletedNotes() {
+  var sh = sheet_('Hareketler', ['Tarih', 'Kim', 'İşlem', 'İlan', 'Detay']);
+  var lastRow = sh.getLastRow();
+  var dataRange = sh.getDataRange();
+  var values = dataRange.getValues();
+  var deletedCount = 0;
+
+  // Alttan yukarı doğru sil ki satır numaraları bozulmasın
+  for (var i = values.length - 1; i >= 1; i--) {
+    var action = String(values[i][2] || '');
+    if (action === 'Not silindi') {
+      sh.deleteRow(i + 1);
+      deletedCount++;
+    }
+  }
+
+  return 'Temizlendi: ' + deletedCount + ' adet "Not silindi" kaydı silindi.';
+}
