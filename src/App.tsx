@@ -259,7 +259,7 @@ export default function App() {
         write(() => addNote(p.title, text), () => setActivity((prev) => prev.slice(1)), 'Not');
       },
       deleteNote: (p: Property, noteId: string) => {
-        setActivity((prev) => prev.filter((a) => a.noteId !== noteId));
+        setActivity((prev) => prev.filter((a) => !(a.action === 'Not' && a.title === p.title && a.detail === noteId)));
         write(() => deleteNote(p.title, noteId), () => setToast({ message: 'Not silinemedi.' }), 'Not');
       },
       location: (p: Property, lat: number, lng: number) => {
