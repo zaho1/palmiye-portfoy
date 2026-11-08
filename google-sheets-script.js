@@ -716,7 +716,7 @@ function doGet(e) {
   try {
     if (p.action === 'ping') {
       var list = advisors_();
-      var ready = list.some(function (a) { return a.active && a.hash; });
+      var ready = list.some(function (a) { return a.active && (a.hash || a.invite); });
       return json_({ status: 'active', message: 'Palmiye Portföy API çalışıyor', version: VERSION, accounts: ready, enforced: enforced_() });
     }
 
