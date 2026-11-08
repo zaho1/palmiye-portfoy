@@ -765,3 +765,16 @@ function cleanDeletedNotes() {
 
   return 'Temizlendi: ' + deletedCount + ' adet "Not silindi" kaydı silindi.';
 }
+
+// Bildirim izni: editörde bir kez çalıştırın. Google "harici hizmete bağlan" iznini ister;
+// günlükte "200 {...}" görünürse Vercel'e bağlantı çalışıyor demektir.
+function bildirimIzniVer() {
+  ScriptApp.requireScopes(ScriptApp.AuthMode.FULL, ['https://www.googleapis.com/auth/script.external_request']);
+  var res = UrlFetchApp.fetch(PUSH_URL, {
+    method: 'post',
+    contentType: 'application/json',
+    payload: JSON.stringify({ secret: PUSH_SECRET, messages: [] }),
+    muteHttpExceptions: true,
+  });
+  Logger.log(res.getResponseCode() + ' ' + res.getContentText());
+}
