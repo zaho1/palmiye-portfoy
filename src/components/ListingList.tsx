@@ -569,7 +569,7 @@ function OfficePanels({ activity }: { activity: ActivityEntry[] }) {
                     <span className="font-medium">{a.action}</span>
                     {a.title && <span className="text-muted"> · {a.title}</span>}
                   </p>
-                  <p className="text-[11px] text-faint truncate">{[a.who, a.detail].filter(Boolean).join(' · ')}</p>
+                  <p className="text-[11px] text-faint truncate">{[a.who, /^[A-Z]{1,3}-[A-Z0-9]+$/.test(a.detail.trim()) ? '' : a.detail].filter(Boolean).join(' · ')}</p>
                 </div>
                 <span className="text-[11px] text-faint num whitespace-nowrap">{formatDateTime(a.at)}</span>
               </li>

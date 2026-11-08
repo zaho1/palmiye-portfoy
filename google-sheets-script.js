@@ -263,7 +263,56 @@ function setAdvisorCells_(a, obj) {
   clearAdvisorCache_();
 }
 
+// ---------- Giriş geçmişi ----------
+// "Giriş Geçmişi" sayfası: en yeni kayıt en üstte. Girişler, hatalı denemeler ve
+// her danışmanın uygulamayı o gün ilk açışı yazılır (yöneticinin kimin kullandığını görmesi için).
+function loginSheet_() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sh = ss.getSheetByName('Giriş Geçmişi');
+  if (!sh) {
+    sh = ss.insertSheet('Giriş Geçmişi');
+    sh.appendRow(['Tarih', 'E-posta', 'Ad Soyad', 'Olay', 'Cihaz']);
+    sh.setFrozenRows(1);
+    sh.getRange(1, 1, 1, 5).setFontWeight('bold');
+  }
+  return sh;
+}
+function loginLog_(email, name, event, device) {
+  try {
+    var sh = loginSheet_();
+    sh.insertRowAfter(1);
+    sh.getRange(2, 1, 1, 5).setValues([[now_(), email, name || '', event, String(device || '').slice(0, 60)]]);
+  } catch (e) { /* kayıt tutulamazsa giriş yine çalışır */ }
+}
+// Oturumu açık danışmanın o günkü ilk kullanımı (günde bir satır)
+function markSeen_(a) {
+  try {
+    var day = Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd');
+    var key = 'seen_' + a.email;
+    var cache = CacheService.getScriptCache();
+    if (cache.get(key) === day) return;
+    var props = PropertiesService.getScriptProperties();
+    if (props.getProperty(key) === day) { cache.put(key, day, 21600); return; }
+    props.setProperty(key, day);
+    cache.put(key, day, 21600);
+    loginLog_(a.email, a.name, 'Uygulamayı kullandı', '');
+  } catch (e) { /* önemsiz */ }
+}
+
 function doLogin_(data) {
+  var out = doLoginCore_(data);
+  var email = String(data.email || '').trim().toLowerCase();
+  if (email) {
+    var a = advisorByEmail_(email);
+    var event = out.success
+      ? (data.action === 'activate' ? 'İlk giriş (hesap açıldı)' : 'Giriş yaptı')
+      : 'Başarısız giriş: ' + (out.message || '');
+    loginLog_(email, a ? a.name : '', event, data.device);
+  }
+  return out;
+}
+
+function doLoginCore_(data) {
   var email = String(data.email || '').trim().toLowerCase();
   if (!email) return { success: false, message: 'E-posta gerekli.' };
   if (tooManyFails_(email)) return { success: false, message: 'Çok fazla hatalı deneme. 15 dakika sonra tekrar deneyin.' };
@@ -499,7 +548,10 @@ function zorunluGirisiKapat() {
 
 function gate_(token, legacyUser) {
   var a = authed_(token);
-  if (a) return { ok: true, who: a.email, advisor: a };
+  if (a) {
+    markSeen_(a);
+    return { ok: true, who: a.email, advisor: a };
+  }
   if (enforced_()) return { ok: false };
   return { ok: true, who: legacyUser || '', advisor: null };
 }

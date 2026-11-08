@@ -245,9 +245,18 @@ export async function postRead<T extends { success?: boolean; message?: string }
 }
 
 export type LoginResult = { success: boolean; message?: string; token?: string; user?: SessionUser };
-export const serverLogin = (email: string, password: string) => postRead<LoginResult>({ action: 'login', email, password });
+// Giriş geçmişinde görünen kısa cihaz adı (ör. "iPhone · Uygulama", "Windows · Chrome")
+function deviceLabel(): string {
+  const ua = navigator.userAgent;
+  const os = /iPhone|iPad/.test(ua) ? 'iPhone' : /Android/.test(ua) ? 'Android' : /Windows/.test(ua) ? 'Windows' : /Mac/.test(ua) ? 'Mac' : 'Diğer';
+  const app = window.matchMedia?.('(display-mode: standalone)').matches || (navigator as { standalone?: boolean }).standalone;
+  const browser = app ? 'Uygulama' : /Edg\//.test(ua) ? 'Edge' : /Chrome|CriOS/.test(ua) ? 'Chrome' : /Safari/.test(ua) ? 'Safari' : /Firefox/.test(ua) ? 'Firefox' : 'Tarayıcı';
+  return `${os} · ${browser}`;
+}
+export const serverLogin = (email: string, password: string) =>
+  postRead<LoginResult>({ action: 'login', email, password, device: deviceLabel() });
 export const serverActivate = (email: string, invite: string, password: string) =>
-  postRead<LoginResult>({ action: 'activate', email, invite, password });
+  postRead<LoginResult>({ action: 'activate', email, invite, password, device: deviceLabel() });
 export const changePassword = (password: string, newPassword: string) =>
   postRead<{ success: boolean; message?: string }>({ action: 'changePassword', password, newPassword });
 

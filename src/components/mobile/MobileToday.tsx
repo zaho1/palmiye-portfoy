@@ -85,6 +85,14 @@ export default function MobileToday({ properties, requests, activity, userName, 
     [myRequests],
   );
 
+  const byRequest = useMemo(() => new Map(requests.map((r) => [r.id, r])), [requests]);
+  // Hareketin alt satırı: ilan başlığı ya da talebin kısa tarifi; iç kodlar (T-…) gösterilmez
+  const feedLine = (a: ActivityEntry) => {
+    if (a.title) return a.title;
+    const r = byRequest.get(a.detail.trim());
+    if (r) return [r.deal, r.kind, r.region !== 'Belirtilmemiş' ? r.region : ''].filter(Boolean).join(' · ');
+    return /^[A-Z]{1,3}-[A-Z0-9]+$/.test(a.detail.trim()) ? '' : a.detail;
+  };
   const feed = useMemo(() => activity.filter((a) => FEED_ACTIONS.includes(a.action)).slice(0, 8), [activity]);
   const recentProps = useMemo(() => recents.map((id) => byId.get(id)).filter((p): p is Property => !!p).slice(0, 10), [recents, byId]);
 
@@ -263,7 +271,7 @@ export default function MobileToday({ properties, requests, activity, userName, 
                       <span className="font-medium">{isMine(nameOf(a.who)) ? 'Sen' : firstName(nameOf(a.who))}</span>{' '}
                       <span className="text-muted">{a.action.toLocaleLowerCase('tr')}</span>
                     </p>
-                    <p className="text-[13px] text-faint truncate">{a.title || a.detail || '—'}</p>
+                    {feedLine(a) && <p className="text-[13px] text-faint truncate">{feedLine(a)}</p>}
                   </div>
                   <span className="text-[12px] text-faint num shrink-0">{when(a.at)}</span>
                 </>
