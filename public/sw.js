@@ -4,7 +4,7 @@
  *    en son görülen veri gösterilir. Yazma istekleri (POST) hiçbir zaman buradan geçmez, çevrimdışıyken yazılamaz.
  *  - Mal sahibi (action=owner) ve ofis şifresi taşıyan hiçbir istek önbelleğe alınmaz.
  */
-const VERSION = 'v1';
+const VERSION = 'v2';
 const SHELL = `palmiye-shell-${VERSION}`;
 const ASSETS = `palmiye-assets-${VERSION}`;
 const DATA = `palmiye-data-${VERSION}`;
@@ -97,18 +97,20 @@ async function dataStrategy(request) {
   try {
     const res = await withTimeout(fetch(request), NETWORK_TIMEOUT_MS);
     if (res.ok) {
+      // Kaydedildiği an cevabın kendi başlığına yazılır (Cache API anahtardaki # kısmını yok sayar)
       const copy = res.clone();
-      cache.put(key, copy).then(() => cache.put(key + '#at', new Response(String(Date.now())))).catch(() => undefined);
+      (async () => {
+        const body = await copy.blob();
+        const headers = new Headers(copy.headers);
+        headers.set('x-palmiye-cached-at', String(Date.now()));
+        await cache.put(key, new Response(body, { status: copy.status, statusText: copy.statusText, headers }));
+      })().catch(() => undefined);
     }
     return res;
   } catch (err) {
     const hit = await cache.match(key);
     if (!hit) throw err;
-    const at = await cache.match(key + '#at');
-    const stamp = at ? await at.text() : '';
-    const headers = new Headers(hit.headers);
-    headers.set('x-palmiye-cached-at', stamp);
-    return new Response(await hit.blob(), { status: hit.status, statusText: hit.statusText, headers });
+    return hit;
   }
 }
 
