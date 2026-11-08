@@ -68,8 +68,20 @@ function json_(obj) {
   return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON);
 }
 
+// İlan sayfası: sekme sırası değişse de (ör. Danışmanlar öne alınsa) doğru sayfayı bulur.
+// Önce adı "İlanlar", yoksa başlık satırında "İlan Başlığı" olan ilk sayfa, o da yoksa ilk sayfa.
 function listingSheet_() {
-  return SpreadsheetApp.getActiveSpreadsheet().getSheets()[0];
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var byName = ss.getSheetByName('İlanlar');
+  if (byName) return byName;
+  var all = ss.getSheets();
+  for (var i = 0; i < all.length; i++) {
+    var sh = all[i];
+    if (sh.getLastColumn() < 1) continue;
+    var head = sh.getRange(1, 1, 1, Math.min(sh.getLastColumn(), 30)).getValues()[0];
+    if (head.indexOf('İlan Başlığı') !== -1) return sh;
+  }
+  return all[0];
 }
 
 // Adıyla sayfa; yoksa verilen başlıklarla oluşturur.
