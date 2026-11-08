@@ -121,6 +121,11 @@ export default function App() {
     return properties.filter((p) => p.status === 'Aktif' && !names.has(p.agentName.toLocaleLowerCase('tr').trim())).length;
   }, [directory, properties]);
   const [activity, setActivity] = useState<ActivityEntry[]>([]);
+  // Talep kapanış hareketleri de yalnızca yöneticilere görünür
+  const visibleActivity = useMemo(
+    () => (isAdmin(currentUser) ? activity : activity.filter((a) => a.action !== 'Müşteri talebi kapandı')),
+    [activity, currentUser],
+  );
   const [v2Ready, setV2Ready] = useState(true);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
@@ -494,7 +499,7 @@ export default function App() {
           hash={hash}
           properties={properties}
           requests={requests}
-          activity={activity}
+          activity={visibleActivity}
           loading={loading}
           loadError={loadError}
           v2Ready={v2Ready}
@@ -638,7 +643,7 @@ export default function App() {
                 properties={properties}
                 presentMode={presentMode}
                 requests={requests}
-                activity={activity}
+                activity={visibleActivity}
                 officeKey={officeKey}
                 v2Ready={v2Ready}
                 actions={actions}
@@ -656,7 +661,7 @@ export default function App() {
                 key={hash}
                 properties={properties}
                 requests={requests}
-                activity={activity}
+                activity={visibleActivity}
                 scope={route.name === 'mine' ? 'mine' : route.name === 'favorites' ? 'favorites' : 'all'}
                 preset={route.name === 'list' ? route.preset : {}}
                 userName={userName}

@@ -1054,6 +1054,9 @@ function doGet(e) {
       var cutoff = PropertiesService.getScriptProperties().getProperty('FEED_CLEARED_AT') || '';
       var logRows = readSheet_('Hareketler');
       if (cutoff) logRows = logRows.filter(function (r) { return String(r['Tarih'] || '').slice(0, 16) > cutoff; });
+      // Talep kapanışı kayıtlarını da yalnızca yöneticiler görür
+      var adminLog = !!g.advisor && ADMIN_EMAILS.indexOf(g.advisor.email) !== -1;
+      if (!adminLog) logRows = logRows.filter(function (r) { return String(r['İşlem'] || '') !== 'Müşteri talebi kapandı'; });
       return json_({ success: true, rows: logRows.reverse().slice(0, 200) });
     }
     // Yönetici: pasif dahil tüm hesaplar (aktif/pasif düğmesi için)
