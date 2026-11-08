@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { usePush } from '../../lib/push';
-import { postRead } from '../../lib/sheets';
+import { getApiToken, postRead } from '../../lib/sheets';
 import { btnBig, btnBigSecondary } from './controls';
 import { CheckIcon } from './icons';
 
@@ -17,7 +17,7 @@ const dismissed = () => {
 export function PushBanner() {
   const { state, busy, enable, error } = usePush();
   const [hidden, setHidden] = useState(dismissed);
-  if (state !== 'off' || hidden) return null;
+  if (state !== 'off' || hidden || !getApiToken()) return null;
   return (
     <section className="bg-surface rounded-2xl p-4">
       <h2 className="text-[16px] font-semibold">Bildirimleri aç</h2>
@@ -47,6 +47,7 @@ export function PushBanner() {
 export function PushSettings() {
   const { state, news, busy, error, enable, disable, setNews } = usePush();
   const [tested, setTested] = useState(false);
+  const [testError, setTestError] = useState('');
 
   const body =
     state === 'unsupported' ? (
@@ -78,7 +79,10 @@ export function PushSettings() {
         <div className="mt-3 flex gap-3">
           <button
             onClick={() => {
-              postRead({ action: 'pushTest' }).then(() => setTested(true)).catch(() => undefined);
+              setTestError('');
+              postRead<{ success: boolean; message?: string }>({ action: 'pushTest' })
+                .then((r) => (r.success ? setTested(true) : setTestError(r.message || 'Gönderilemedi.')))
+                .catch(() => setTestError('Gönderilemedi. Çıkış yapıp kişisel hesabınızla yeniden girin.'));
             }}
             className={`${btnBigSecondary} flex-1`}
           >
@@ -93,7 +97,7 @@ export function PushSettings() {
     <section className="bg-surface rounded-2xl p-4">
       <h2 className="text-[16px] font-semibold mb-2">Bildirimler</h2>
       {body}
-      {error && <p role="alert" className="mt-2 text-[13px] text-negative">{error}</p>}
+      {(error || testError) && <p role="alert" className="mt-2 text-[13px] text-negative">{error || testError}</p>}
     </section>
   );
 }

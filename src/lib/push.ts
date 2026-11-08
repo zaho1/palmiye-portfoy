@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { postRead } from './sheets';
+import { getApiToken, postRead } from './sheets';
 import { detectPlatform, isStandalone } from './pwa';
 
 // Herkese açık VAPID anahtarı (gizli anahtar yalnızca Vercel'de durur)
@@ -66,6 +66,10 @@ export function usePush() {
   useEffect(refresh, [refresh]);
 
   const enable = useCallback(async () => {
+    if (!getApiToken()) {
+      setError('Bildirimler kişisel hesapla çalışır. Çıkış yapıp "İlk kez mi giriş yapıyorsunuz?" ile davet kodunuzla girin.');
+      return;
+    }
     setBusy(true);
     setError('');
     try {
@@ -82,7 +86,7 @@ export function usePush() {
       setState('on');
     } catch (err) {
       console.error('Bildirim açılamadı:', err);
-      setError('Bildirim açılamadı. İnternet bağlantısını kontrol edip tekrar deneyin.');
+      setError(err instanceof Error && err.message ? err.message : 'Bildirim açılamadı. İnternet bağlantısını kontrol edip tekrar deneyin.');
     } finally {
       setBusy(false);
     }
