@@ -143,6 +143,19 @@ function readSheet_(name) {
   return readRows_(sh);
 }
 
+// Uygulamadan silinen (Durum = Silindi) ilanların satırlarını İlanlarım sayfasında gizler.
+// Satır silinmez: satır sırasına bağlı ilan ID'leri kaymasın diye. Bir kerelik çalıştırmak yeterli.
+function silinenleriGizle() {
+  var sh = listingSheet_();
+  var rows = readRows_(sh);
+  var n = 0;
+  rows.forEach(function (r) {
+    if (String(r['Durum'] || '').trim() === 'Silindi') { sh.hideRows(r._row); n++; }
+  });
+  log_('sistem', 'Silinen ilanlar gizlendi', String(n), '');
+  return n;
+}
+
 function readRows_(sh) {
   if (!sh || sh.getLastRow() < 2) return [];
   var values = sh.getDataRange().getDisplayValues();
@@ -703,6 +716,7 @@ function doPost(e) {
 
       if (data.action === 'updateStatus') {
         setCells_(sh, row, map, { 'Durum': data.status, 'Son Güncelleme': now_() });
+        if (data.status === 'Silindi') sh.hideRows(row); // satır silinmez (ID'ler kaymasın), sadece gizlenir
         log_(who, 'Durum: ' + data.status, data.title, '');
       }
       if (data.action === 'setLocation') {
