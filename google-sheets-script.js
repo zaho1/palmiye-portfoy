@@ -31,6 +31,25 @@ var ADVISORS = [
   ['ilbey@palmiyeyatirim.com', 'İlbey Faruk Nergiz', '0535 014 77 69', 'Yönetici'],
   ['zahit@palmiyeyatirim.com', 'Nureddin Zahit Arıduru', '0505 146 59 49', 'Yönetici'],
   ['omer@palmiyeyatirim.com', 'Ömer Nergiz', '0532 465 03 15', 'Yönetici'],
+  // Sitedeki "Ekibimiz" sayfasından (palmiyeyatirim.com)
+  ['ali.bilgi@palmiyeyatirim.com', 'Ali Bilgi', '0538 483 79 77', 'Danışman'],
+  ['aydin.kahveci@palmiyeyatirim.com', 'Aydın Kahveci', '0539 668 38 05', 'Danışman'],
+  ['kubra.ozkaya@palmiyeyatirim.com', 'Kübra Özkaya', '0541 130 49 77', 'Danışman'],
+  ['aytekinsuzen@palmiyeyatirim.com', 'Aytekin Süzen', '0532 609 90 20', 'Danışman'],
+  ['ozgur.kartal@palmiyeyatirim.com', 'Özgür Kartal', '0553 029 09 55', 'Danışman'],
+  ['fatma.saka@palmiyeyatirim.com', 'Fatma Saka', '0535 418 53 98', 'Danışman'],
+  ['hasan.gurses@palmiyeyatirim.com', 'Hasan Gürses', '0532 698 67 57', 'Danışman'],
+  ['abdullah.aydin@palmiyeyatirim.com', 'Abdullah Aydın', '0535 083 46 00', 'Danışman'],
+  ['halit.aydin@palmiyeyatirim.com', 'Halit Aydın', '0536 547 17 00', 'Danışman'],
+  ['ersin.aktarli@palmiyeyatirim.com', 'Ersin Aktarli', '0530 851 21 96', 'Danışman'],
+  ['enes.pinarbasi@palmiyeyatirim.com', 'Enes Pınarbaşı', '0506 486 29 43', 'Danışman'],
+  ['ayhan.ak@palmiyeyatirim.com', 'Ayhan Ak', '0537 612 20 70', 'Danışman'],
+  ['salih.gundas@palmiyeyatirim.com', 'Salih Gündaş', '0533 504 82 41', 'Danışman'],
+  ['suleyman.erdogan@palmiyeyatirim.com', 'Süleyman Erdoğan', '0542 774 05 61', 'Danışman'],
+  ['muratakoz@palmiyeyatirim.com', 'Murat Aköz', '0551 163 77 77', 'Danışman'],
+  ['fatma.ulugol@palmiyeyatirim.com', 'Fatma Ulugöl', '0533 328 33 17', 'Danışman'],
+  ['emine.erden@palmiyeyatirim.com', 'Emine Erden', '0507 991 60 57', 'Danışman'],
+  ['emel.demirtas@palmiyeyatirim.com', 'Emel Demirtaş', '0532 462 75 14', 'Danışman'],
 ];
 
 var ADV_HEADERS = ['E-posta', 'Ad Soyad', 'Telefon', 'Rol', 'Aktif', 'Davet Kodu', 'Şifre Özeti', 'Tuz', 'Son Giriş'];
@@ -829,4 +848,244 @@ function bildirimIzniVer() {
     muteHttpExceptions: true,
   });
   Logger.log(res.getResponseCode() + ' ' + res.getContentText());
+}
+
+// ---------- Web sitesinden ilan aktarımı (palmiyeyatirim.com) ----------
+// siteIlanlariniAktar(): sitedeki tüm ilanları okur, Sheet'te olmayanları ekler.
+// Aynı ilan ikinci kez eklenmez ("Site Linki" sütunu). Bildirim gönderilmez.
+// siteIlanlariniDene(): hiçbir şey yazmadan ne ekleneceğini günlüğe döker.
+var SITE_ROOT = 'https://palmiyeyatirim.com';
+var SITE_CATEGORIES = [
+  ['/tr/satilik-ilanlar/emlak', 'Satılık', 'emlak'],
+  ['/tr/satilik-ilanlar/is-yeri', 'Satılık', 'isyeri'],
+  ['/tr/satilik-ilanlar/arsa', 'Satılık', 'arsa'],
+  ['/tr/kiralik-ilanlar/emlak', 'Kiralık', 'emlak'],
+  ['/tr/kiralik-ilanlar/imalathane', 'Kiralık', 'isyeri'],
+  ['/tr/kiralik-ilanlar/dukkan-ve-magaza', 'Kiralık', 'isyeri'],
+];
+
+function siteFetch_(path) {
+  var res = UrlFetchApp.fetch(SITE_ROOT + path, { muteHttpExceptions: true, followRedirects: true });
+  return res.getResponseCode() === 200 ? res.getContentText() : '';
+}
+
+function siteDecode_(s) {
+  return String(s || '')
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&quot;/g, '"')
+    .replace(/&#0?39;/g, "'")
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/[ \t]+/g, ' ')
+    .replace(/ *\n */g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
+function siteLinks_(html) {
+  var out = [];
+  var re = /href="([^"]*\/ilan-detay\/[^"#?]+)"/g;
+  var m;
+  while ((m = re.exec(html))) {
+    var p = m[1].replace(/^https?:\/\/(www\.)?palmiyeyatirim\.com/, '');
+    if (out.indexOf(p) < 0) out.push(p);
+  }
+  return out;
+}
+
+function siteKind_(group, title) {
+  var t = lowerTr_(title);
+  if (group === 'isyeri' || /dükkan|dukkan|işyeri|isyeri|iş yeri|mağaza|imalathane|depo|ofis/.test(t)) return 'Dükkan / İşyeri';
+  if (/komple bina|\bbina\b/.test(t)) return 'Bina';
+  if (group === 'arsa' || /arsa|tarla|bahçe|zeytinlik|arazi/.test(t)) return /tarla|bahçe|zeytinlik|arazi/.test(t) ? 'Tarla / Bahçe' : 'Arsa';
+  if (/villa|müstakil|mustakil|dubleks|tripleks/.test(t)) return 'Villa / Müstakil';
+  return 'Daire';
+}
+
+function siteRegion_(text) {
+  var t = lowerTr_(text);
+  var towns = ['Çiftlikköy', 'Altınova', 'Çınarcık', 'Termal', 'Armutlu', 'Teşvikiye', 'Esenköy', 'Koruköy', 'Kocadere', 'Akköy', 'Gökçedere'];
+  var map = { 'Teşvikiye': 'Çınarcık', 'Esenköy': 'Çınarcık', 'Koruköy': 'Çınarcık', 'Kocadere': 'Çınarcık', 'Akköy': 'Merkez', 'Gökçedere': 'Termal' };
+  for (var i = 0; i < towns.length; i++) {
+    if (t.indexOf(lowerTr_(towns[i])) >= 0) return map[towns[i]] || towns[i];
+  }
+  return /merkez/.test(t) ? 'Merkez' : '';
+}
+
+function siteNeighborhood_(title) {
+  var m = String(title).match(/((?:\d+\s)?[A-Za-zÇĞİÖŞÜçğıöşü]+(?:\s[A-Za-zÇĞİÖŞÜçğıöşü]+)?)\s+(?:MAHALLESİ|MAHALLESI|Mahallesi|mahallesi|MAH\.|Mah\.)/);
+  if (!m) return '';
+  var words = m[1].split(/\s+/).filter(function (w) { return !/^(yalova|merkez|satılık|satilik|kiralık|kiralik|ve|de|da)$/i.test(w); });
+  return words.join(' ').toLocaleLowerCase('tr').replace(/(^|\s)\S/g, function (c) { return c.toLocaleUpperCase('tr'); });
+}
+
+// Kısa Google Haritalar bağlantısından koordinat (bulunamazsa boş)
+function siteCoords_(shortUrl) {
+  if (!shortUrl) return '';
+  try {
+    var url = shortUrl;
+    for (var i = 0; i < 3; i++) {
+      var res = UrlFetchApp.fetch(url, { followRedirects: false, muteHttpExceptions: true });
+      var loc = res.getHeaders()['Location'] || res.getHeaders()['location'];
+      var text = loc || res.getContentText().slice(0, 4000);
+      var m = String(text).match(/@(-?\d+\.\d+),(-?\d+\.\d+)/) || String(text).match(/[?&](?:q|ll|query)=(-?\d+\.\d+)(?:,|%2C)\s*(-?\d+\.\d+)/) || String(text).match(/!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)/);
+      if (m) return Number(m[1]).toFixed(5) + ', ' + Number(m[2]).toFixed(5);
+      if (!loc) break;
+      url = loc;
+    }
+  } catch (e) { /* önemsiz */ }
+  return '';
+}
+
+function siteParse_(html, path, deal, group) {
+  var title = siteDecode_((html.match(/<h1[^>]*>([\s\S]*?)<\/h1>/) || [])[1]);
+  var price = siteDecode_((html.match(/<h3[^>]*>\s*([0-9][0-9.,]*\s*(?:TL|₺|USD|EUR|\$|€|£))\s*<\/h3>/) || [])[1]);
+  if (/^0([.,]0+)?\s*TL$/.test(price)) price = '';
+  var box = (html.match(/property-amenities-box[\s\S]*?<\/ul>/) || [''])[0];
+  var lis = [];
+  var re = /<li[^>]*>([\s\S]*?)<\/li>/g;
+  var m;
+  while ((m = re.exec(box))) lis.push(siteDecode_(m[1]));
+  var descRaw = (html.match(/about-property-content">([\s\S]*?)<div class="about-property-cta"/) || [])[1] || '';
+  var desc = siteDecode_(descRaw);
+  var imgs = [];
+  var ri = /(?:src|href|data-src)="([^"]*\/uploads\/[^"]+\.(?:webp|jpe?g|png))"/gi;
+  while ((m = ri.exec(html))) {
+    var u = m[1].replace(/^http:/, 'https:').replace(/storage\/+uploads/, 'storage/uploads');
+    if (imgs.indexOf(u) < 0) imgs.push(u);
+  }
+  var seller = html.split('Satıcı Bilgileri')[1] || '';
+  var agent = siteDecode_((seller.match(/<h5[^>]*>([\s\S]*?)<\/h5>/) || [])[1]);
+  if (/bilgisi yok/i.test(agent)) agent = '';
+  var agentTel = agent ? ((seller.match(/href="tel:([0-9+ ]+)"/) || [])[1] || '') : '';
+  var mapUrl = (html.match(/https:\/\/maps\.app\.goo\.gl\/[A-Za-z0-9]+/) || [''])[0];
+
+  var row = { size: '', rooms: '', floor: '', age: '', heating: '', imar: '' };
+  var feats = [];
+  var facts = [];
+  lis.forEach(function (li) {
+    var kv = li.match(/^([^:]+?)\s*:\s*(.*)$/);
+    var key = kv ? kv[1].trim() : '';
+    var val = kv ? kv[2].trim() : '';
+    if (!row.size && /^[\d.,]+\s*m²$/.test(li)) row.size = li.replace(/\s*m²$/, '').replace(/\./g, '');
+    else if (!row.rooms && /^\d+(\.5)?\+\d+$/.test(li)) row.rooms = li;
+    else if (/^Bulunduğu Kat$/i.test(key)) row.floor = val;
+    else if (/^Bina yaşı/i.test(li)) row.age = li.replace(/^Bina yaşı\s*/i, '');
+    else if (/^Isıtma/i.test(li)) row.heating = val || li.replace(/^Isıtma\s*\(?/i, '').replace(/\)$/, '');
+    else if (/^İmar Durumu$/i.test(key)) row.imar = val;
+    else if (kv && /^(var|evet)$/i.test(val)) feats.push(key.replace(/içeresinde|içerisinde/i, 'içinde'));
+    else if (kv && /^takas$/i.test(key)) { if (/var|evet/i.test(val)) feats.push('Takas'); }
+    else if (kv && /^(yok|hayır)$/i.test(val)) { /* olumsuzlar yazılmaz */ }
+    else if (kv) facts.push(key + ': ' + val);
+    else facts.push(li);
+  });
+  var text = desc;
+  if (facts.length) text += (text ? '\n\n' : '') + facts.join(' · ');
+
+  var kind = siteKind_(group, title);
+  return {
+    'İlan Başlığı': title,
+    'Fiyat': price,
+    'Kategori': deal + ' ' + kind,
+    'İmar Durumu': row.imar,
+    'm²': row.size,
+    'Açıklama': text,
+    'Görsel URL': imgs.slice(0, 20).join('|||'),
+    'Danışman Bilgileri': agent || 'Palmiye Yatırım',
+    'Danışmanın Telefon Numarası': agentTel ? formatPhoneTr_(agentTel) : '',
+    'Durum': 'Aktif',
+    'Bölge': siteRegion_(title + ' ' + desc),
+    'Mahalle': siteNeighborhood_(title),
+    'Oda Sayısı': row.rooms,
+    'Kat': row.floor,
+    'Bina Yaşı': row.age,
+    'Isınma': row.heating,
+    'Özellikler': feats.join(', '),
+    'Konum': '',
+    '_map': mapUrl,
+    'Site Linki': SITE_ROOT + path,
+  };
+}
+
+function formatPhoneTr_(tel) {
+  var d = String(tel).replace(/\D/g, '');
+  if (d.length === 12 && d.indexOf('90') === 0) d = d.slice(2);
+  if (d.length === 10) d = '0' + d;
+  return d.length === 11 ? d.slice(0, 4) + ' ' + d.slice(4, 7) + ' ' + d.slice(7, 9) + ' ' + d.slice(9) : tel;
+}
+
+// Sitedeki tüm ilan yolları -> [yol, satılık/kiralık, grup]
+function siteAllPaths_() {
+  var seen = {};
+  var list = [];
+  SITE_CATEGORIES.forEach(function (c) {
+    siteLinks_(siteFetch_(c[0])).forEach(function (p) {
+      if (!seen[p]) { seen[p] = 1; list.push([p, c[1], c[2]]); }
+    });
+  });
+  // Yalnızca danışman sayfasında görünen ilanlar
+  var team = siteFetch_('/tr/ekibimiz');
+  var re = /href="(?:https?:\/\/(?:www\.)?palmiyeyatirim\.com)?(\/tr\/ekibimiz\/[a-z0-9-]+)"/g;
+  var m;
+  var pages = [];
+  while ((m = re.exec(team))) if (pages.indexOf(m[1]) < 0) pages.push(m[1]);
+  pages.forEach(function (pg) {
+    siteLinks_(siteFetch_(pg)).forEach(function (p) {
+      if (!seen[p]) {
+        seen[p] = 1;
+        list.push([p, /kiral/i.test(p) ? 'Kiralık' : 'Satılık', /arsa|tarla/.test(p) ? 'arsa' : /dukkan|isyeri|is-yeri|magaza|imalathane/.test(p) ? 'isyeri' : 'emlak']);
+      }
+    });
+  });
+  return list;
+}
+
+function siteImport_(dryRun) {
+  var sh = listingSheet_();
+  var existing = {};
+  readRows_(sh).forEach(function (r) {
+    if (r['Site Linki']) existing[String(r['Site Linki']).trim()] = 1;
+    existing['t:' + lowerTr_(String(r['İlan Başlığı'] || '').trim())] = 1;
+  });
+  var paths = siteAllPaths_();
+  var added = [];
+  var skipped = 0;
+  paths.forEach(function (p) {
+    var url = SITE_ROOT + p[0];
+    if (existing[url]) { skipped++; return; }
+    var html = siteFetch_(p[0]);
+    if (!html) return;
+    var row = siteParse_(html, p[0], p[1], p[2]);
+    if (!row['İlan Başlığı'] || existing['t:' + lowerTr_(row['İlan Başlığı'])]) { skipped++; return; }
+    var map = row['_map'];
+    delete row['_map'];
+    if (dryRun) {
+      added.push(row);
+      return;
+    }
+    row['Konum'] = siteCoords_(map);
+    row['Eklenme Tarihi'] = now_();
+    row['Son Güncelleme'] = now_();
+    appendObject_(sh, row);
+    existing[url] = 1;
+    added.push(row);
+  });
+  if (!dryRun && added.length) log_('sistem', 'Siteden ilan aktarıldı', '', added.length + ' ilan');
+  return { found: paths.length, added: added, skipped: skipped };
+}
+
+function siteIlanlariniDene() {
+  var r = siteImport_(true);
+  Logger.log('Sitede ' + r.found + ' ilan, eklenecek ' + r.added.length + ', zaten var ' + r.skipped);
+  r.added.slice(0, 200).forEach(function (row) {
+    Logger.log([row['Kategori'], row['İlan Başlığı'], row['Fiyat'], row['Bölge'] || '-', row['Danışman Bilgileri'], (row['Görsel URL'] ? row['Görsel URL'].split('|||').length : 0) + ' foto'].join(' | '));
+  });
+}
+
+function siteIlanlariniAktar() {
+  var r = siteImport_(false);
+  Logger.log('Sitede ' + r.found + ' ilan, eklendi ' + r.added.length + ', zaten vardı ' + r.skipped);
 }
