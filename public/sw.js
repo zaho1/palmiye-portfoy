@@ -4,7 +4,7 @@
  *    en son görülen veri gösterilir. Yazma istekleri (POST) hiçbir zaman buradan geçmez, çevrimdışıyken yazılamaz.
  *  - Mal sahibi (action=owner) ve ofis şifresi taşıyan hiçbir istek önbelleğe alınmaz.
  */
-const VERSION = 'v2';
+const VERSION = 'v3';
 const SHELL = `palmiye-shell-${VERSION}`;
 const ASSETS = `palmiye-assets-${VERSION}`;
 const DATA = `palmiye-data-${VERSION}`;
@@ -82,6 +82,7 @@ function withTimeout(promise, ms) {
 function dataKey(url) {
   const u = new URL(url);
   u.searchParams.delete('_');
+  u.searchParams.delete('token'); // yeniden girişte önbellek boşa gitmesin
   return u.toString();
 }
 
@@ -183,4 +184,42 @@ self.addEventListener('fetch', (event) => {
   if (url.hostname === 'fonts.googleapis.com' || url.hostname === 'fonts.gstatic.com') {
     event.respondWith(staleWhileRevalidate(request, ASSETS));
   }
+});
+
+// ---- Bildirimler (Web Push) ----
+self.addEventListener('push', (event) => {
+  let data = {};
+  try {
+    data = event.data ? event.data.json() : {};
+  } catch {
+    data = { title: 'Palmiye', body: event.data ? event.data.text() : '' };
+  }
+  event.waitUntil(
+    self.registration.showNotification(data.title || 'Palmiye', {
+      body: data.body || '',
+      icon: '/icons/icon-192.png',
+      badge: '/icons/icon-192.png',
+      tag: data.tag || undefined,
+      renotify: !!data.tag,
+      data: { url: data.url || '/#/bugun' },
+    }),
+  );
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const target = new URL((event.notification.data && event.notification.data.url) || '/#/bugun', self.location.origin).href;
+  event.waitUntil(
+    (async () => {
+      const wins = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+      for (const w of wins) {
+        if (new URL(w.url).origin === self.location.origin) {
+          await w.focus();
+          w.postMessage({ type: 'goto', hash: new URL(target).hash || '#/bugun' });
+          return;
+        }
+      }
+      await self.clients.openWindow(target);
+    })(),
+  );
 });

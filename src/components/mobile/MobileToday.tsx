@@ -1,7 +1,8 @@
-import { useMemo, type ReactNode } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import { Map as MapIcon, RefreshCw, UserPlus } from 'lucide-react';
 import type { ActivityEntry, CustomerRequest, Property } from '../../types';
-import { daysSince, formatPrice, isRecent, isStale, relativeDay } from '../../lib/sheets';
+import { daysSince, formatPrice, isRecent, isStale, relativeDay, type RequestFollowUp } from '../../lib/sheets';
+import { TONE_CLASS, callLabel, isDue } from '../../lib/followup';
 import { matchesFor } from '../../lib/match';
 import { firstName, greeting, recentsStore, savedFiltersStore, seenMatchesStore, useStore } from '../../lib/personal';
 import { nameOf } from '../../lib/people';
@@ -9,6 +10,8 @@ import { useSettings } from '../../lib/settings';
 import type { DetailActions } from '../ListingDetail';
 import { Thumb } from '../ui';
 import { CameraIcon, CheckIcon, ChevronRightIcon, NavigationIcon } from './icons';
+import FollowUpSheet, { requestLabel } from './FollowUpSheet';
+import { PushBanner } from './NotificationsCard';
 
 interface Props {
   properties: Property[];
@@ -18,12 +21,11 @@ interface Props {
   loading: boolean;
   actions: DetailActions;
   onRefresh: () => void;
+  onFollowUp: (r: CustomerRequest, f: RequestFollowUp) => void;
 }
 
 // Ofiste görünmesi anlamlı hareketler (not, konum gibi küçük işler listeyi doldurmasın)
 const FEED_ACTIONS = ['İlan eklendi', 'Satıldı / kiralandı', 'Fiyat değişti', 'Müşteri talebi eklendi', 'Müşteri talebi kapandı'];
-
-const requestTitle = (r: CustomerRequest) => `${[r.deal, r.kind, r.rooms].filter(Boolean).join(' ') || 'Talep'}${r.region ? `, ${r.region}` : ''}`;
 
 function when(d: Date | null) {
   if (!d) return '';
@@ -45,7 +47,8 @@ function Section({ title, hint, children }: { title: string; hint?: string; chil
 const tile = 'h-[72px] rounded-2xl bg-surface px-4 flex items-center gap-3 text-[15px] font-medium active:bg-active';
 
 // Açılış ekranı: bugün ne yapmalıyım, benim için ne değişti, ofiste neler oluyor
-export default function MobileToday({ properties, requests, activity, userName, loading, actions, onRefresh }: Props) {
+export default function MobileToday({ properties, requests, activity, userName, loading, actions, onRefresh, onFollowUp }: Props) {
+  const [following, setFollowing] = useState<CustomerRequest | null>(null);
   const { settings } = useSettings();
   const seen = useStore(seenMatchesStore);
   const recents = useStore(recentsStore);
@@ -76,6 +79,12 @@ export default function MobileToday({ properties, requests, activity, userName, 
     [requests, properties, seen, mineKey], // eslint-disable-line react-hooks/exhaustive-deps
   );
 
+  // Bugün (veya daha önce) aranması gereken müşteriler: en gecikmiş önce
+  const calls = useMemo(
+    () => myRequests.map((x) => x.r).filter((r) => isDue(r.nextCall)).sort((a, b) => (a.nextCall ?? '').localeCompare(b.nextCall ?? '')),
+    [myRequests],
+  );
+
   const feed = useMemo(() => activity.filter((a) => FEED_ACTIONS.includes(a.action)).slice(0, 8), [activity]);
   const recentProps = useMemo(() => recents.map((id) => byId.get(id)).filter((p): p is Property => !!p).slice(0, 10), [recents, byId]);
 
@@ -87,7 +96,7 @@ export default function MobileToday({ properties, requests, activity, userName, 
   ];
 
   const date = new Date().toLocaleDateString('tr-TR', { weekday: 'long', day: 'numeric', month: 'long' });
-  const quiet = !stale.length && !myRequests.some((x) => x.fresh.length);
+  const quiet = !stale.length && !calls.length && !myRequests.some((x) => x.fresh.length);
 
   return (
     <div className="m-top px-4 pt-4 pb-4 space-y-6">
@@ -131,6 +140,30 @@ export default function MobileToday({ properties, requests, activity, userName, 
         ))}
       </div>
 
+      <PushBanner />
+
+      {calls.length > 0 && (
+        <Section title="Bugün aranacak müşteriler" hint={`${calls.length} kişi`}>
+          <div className="bg-surface rounded-2xl divide-y divide-rule overflow-hidden">
+            {calls.slice(0, 5).map((r) => {
+              const label = callLabel(r.nextCall);
+              return (
+                <div key={r.id} className="p-3 flex items-center gap-3">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[15px] font-medium truncate">{r.customer || requestLabel(r)}</p>
+                    <p className="text-[13px] text-muted truncate">{r.customer ? requestLabel(r) : r.contactNote || 'Not yok'}</p>
+                    {label && <span className={`mt-1 h-5 px-2 rounded-full text-[12px] font-medium inline-flex items-center ${TONE_CLASS[label.tone]}`}>{label.text}</span>}
+                  </div>
+                  <button onClick={() => setFollowing(r)} className="h-11 px-4 rounded-full bg-ink text-ground text-[14px] font-medium shrink-0 active:opacity-80">
+                    Görüşme yaz
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        </Section>
+      )}
+
       {stale.length > 0 && (
         <Section title="Teyit bekleyen ilanlarım" hint={`${stale.length} ilan`}>
           <div className="bg-surface rounded-2xl divide-y divide-rule overflow-hidden">
@@ -163,7 +196,8 @@ export default function MobileToday({ properties, requests, activity, userName, 
             {myRequests.slice(0, 4).map(({ r, matches, fresh }) => (
               <a key={r.id} href="#/talepler" className="bg-surface rounded-2xl p-4 flex items-center gap-3 active:bg-active">
                 <div className="flex-1 min-w-0">
-                  <p className="text-[16px] font-semibold truncate">{requestTitle(r)}</p>
+                  {r.customer && <p className="text-[13px] text-muted truncate">{r.customer}</p>}
+                  <p className="text-[16px] font-semibold truncate">{requestLabel(r)}</p>
                   <p className="text-[13px] text-muted mt-0.5 num">
                     {r.maxPrice ? `En çok ${formatPrice(r.maxPrice)}` : 'Bütçe belirtilmemiş'}
                     {r.createdAt ? ` · ${relativeDay(r.createdAt)} açıldı` : ''}
@@ -244,6 +278,8 @@ export default function MobileToday({ properties, requests, activity, userName, 
           </div>
         </Section>
       )}
+
+      {following && <FollowUpSheet request={following} onSave={(f) => onFollowUp(following, f)} onClose={() => setFollowing(null)} />}
     </div>
   );
 }

@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { ActivityEntry, CustomerRequest, Property } from '../../types';
-import type { NewListing, NewRequest } from '../../lib/sheets';
+import type { NewListing, NewRequest, RequestFollowUp } from '../../lib/sheets';
 import { matchesFor } from '../../lib/match';
 import { parseHash, type Route } from '../../lib/route';
 import ListingDetail, { type DetailActions } from '../ListingDetail';
@@ -44,6 +44,7 @@ export interface MobileAppProps {
   onLogout: () => void;
   onCreateRequest: (r: NewRequest) => void;
   onCloseRequest: (r: CustomerRequest) => void;
+  onFollowUp: (r: CustomerRequest, f: RequestFollowUp) => void;
   onListingSaved: (l: NewListing) => void;
   notify: (message: string) => void;
 }
@@ -185,7 +186,7 @@ export default function MobileApp(p: MobileAppProps) {
       <PullToRefresh onRefresh={p.onRefresh} busy={p.loading} />
 
       {route.name === 'today' && (
-        <MobileToday properties={p.properties} requests={p.requests} activity={p.activity} userName={p.userName} loading={p.loading} actions={p.actions} onRefresh={p.onRefresh} />
+        <MobileToday properties={p.properties} requests={p.requests} activity={p.activity} userName={p.userName} loading={p.loading} actions={p.actions} onRefresh={p.onRefresh} onFollowUp={p.onFollowUp} />
       )}
 
       <div className={route.name === 'list' ? '' : 'hidden'}>
@@ -205,7 +206,7 @@ export default function MobileApp(p: MobileAppProps) {
       </div>
 
       <div className={route.name === 'requests' ? '' : 'hidden'}>
-        <MobileRequests requests={p.requests} properties={p.properties} userName={p.userName} ready={p.v2Ready} onClose={p.onCloseRequest} />
+        <MobileRequests requests={p.requests} properties={p.properties} userName={p.userName} ready={p.v2Ready} onClose={p.onCloseRequest} onFollowUp={p.onFollowUp} />
       </div>
 
       {route.name === 'mine' && (

@@ -40,6 +40,25 @@ export const setApiUser = (email: string) => {
   apiUser = email;
 };
 
+// Kişisel hesapla girildiyse her istek oturum jetonuyla gider; sunucu kimi doğrular (v4 script)
+let apiToken = '';
+export const setApiToken = (token: string) => {
+  apiToken = token;
+};
+export const getApiToken = () => apiToken;
+
+// Sunucu "oturum gerekli/süresi doldu" derse uygulama giriş ekranına döner
+let onAuthFailure: (() => void) | null = null;
+export const setAuthFailureHandler = (fn: (() => void) | null) => {
+  onAuthFailure = fn;
+};
+
+// Zorunlu giriş açıksa herkese açık CSV yedeği kullanılmaz (içindeki ilanlar da korunur)
+let serverEnforced = false;
+export const setServerEnforced = (v: boolean) => {
+  serverEnforced = v;
+};
+
 /* ---------- Tarih ---------- */
 
 // Sheets tarihi farklı biçimlerde verebilir: "2026-10-21 22:30", "21.10.2026 22:30:00", "10/21/2026 22:30:00"
@@ -156,7 +175,8 @@ export async function fetchProperties(): Promise<Property[]> {
   try {
     const { rows } = await get<{ rows?: Record<string, string>[] }>({ action: 'listings', _: String(Date.now()) });
     if (rows) return rows.filter((r) => Object.entries(r).some(([k, v]) => k !== '_row' && String(v).trim())).map(rowToProperty);
-  } catch {
+  } catch (err) {
+    if (err instanceof AuthError || serverEnforced || apiToken) throw err;
     /* canlı okuma yoksa CSV */
   }
   return fetchPropertiesCsv();
@@ -167,16 +187,73 @@ export async function fetchProperties(): Promise<Property[]> {
 export const cacheInfo: { listingsAt: number | null } = { listingsAt: null };
 
 // Apps Script GET cevabı CORS ile okunabilir (yalnızca v2 script yayınlandıysa vardır)
+export class AuthError extends Error {}
+
 async function get<T>(params: Record<string, string>): Promise<T> {
-  const res = await fetch(`${SHEET_API_URL}?${new URLSearchParams(params)}`);
+  const query = apiToken ? { ...params, token: apiToken } : params;
+  const res = await fetch(`${SHEET_API_URL}?${new URLSearchParams(query)}`);
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   if (params.action === 'listings') {
     const at = Number(res.headers.get('x-palmiye-cached-at'));
     cacheInfo.listingsAt = at > 0 ? at : null;
   }
   const body = await res.json();
-  if (body.success === false) throw new Error(body.message || 'Apps Script hatası');
+  if (body.success === false) {
+    if (body.code === 'auth') {
+      onAuthFailure?.();
+      throw new AuthError(body.message || 'Oturum gerekli');
+    }
+    throw new Error(body.message || 'Apps Script hatası');
+  }
   return body as T;
+}
+
+/* ---------- Hesaplar (v4 script) ---------- */
+
+export interface ApiInfo {
+  version: number;
+  accounts: boolean;
+  enforced: boolean;
+}
+
+// Sunucu yeni sürümse kişisel hesaplarla giriş açılır; değilse eski ortak şifre
+export async function fetchApiInfo(): Promise<ApiInfo | null> {
+  try {
+    const res = await fetch(`${SHEET_API_URL}?action=ping`);
+    const b = await res.json();
+    return { version: Number(b.version) || 0, accounts: !!b.accounts, enforced: !!b.enforced };
+  } catch {
+    return null;
+  }
+}
+
+export interface SessionUser {
+  email: string;
+  name: string;
+  phone: string;
+  role: string;
+}
+
+// Cevabı okunabilen istek (giriş gibi sonucu görülmesi gereken işler). text/plain: tarayıcı ön kontrol (preflight) yapmaz.
+export async function postRead<T extends { success?: boolean; message?: string }>(body: Record<string, unknown>): Promise<T> {
+  const res = await fetch(SHEET_API_URL, {
+    method: 'POST',
+    body: JSON.stringify({ ...body, token: apiToken, user: apiUser }),
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return (await res.json()) as T;
+}
+
+export type LoginResult = { success: boolean; message?: string; token?: string; user?: SessionUser };
+export const serverLogin = (email: string, password: string) => postRead<LoginResult>({ action: 'login', email, password });
+export const serverActivate = (email: string, invite: string, password: string) =>
+  postRead<LoginResult>({ action: 'activate', email, invite, password });
+export const changePassword = (password: string, newPassword: string) =>
+  postRead<{ success: boolean; message?: string }>({ action: 'changePassword', password, newPassword });
+
+export async function fetchAdvisors(): Promise<SessionUser[]> {
+  const { rows } = await get<{ rows?: SessionUser[] }>({ action: 'advisors' });
+  return rows ?? [];
 }
 
 export async function fetchRequests(): Promise<CustomerRequest[]> {
@@ -194,6 +271,10 @@ export async function fetchRequests(): Promise<CustomerRequest[]> {
     maxPrice: parsePrice(r['En Çok Fiyat'] || ''),
     minSize: parseSize(r['En Az m²'] || ''),
     note: r['Not'] || '',
+    customer: r['Müşteri'] || '',
+    nextCall: (r['Sonraki Arama'] || '').trim(),
+    lastContact: (r['Son Görüşme'] || '').trim(),
+    contactNote: r['Görüşme Notu'] || '',
   }));
 }
 
@@ -240,7 +321,7 @@ async function post(body: Record<string, unknown>) {
     method: 'POST',
     mode: 'no-cors',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ ...body, user: apiUser }),
+    body: JSON.stringify({ ...body, token: apiToken, user: apiUser }),
   });
 }
 
@@ -274,6 +355,7 @@ export const saveOwner = (title: string, owner: OwnerInfo, key: string) =>
   post({ action: 'saveOwner', title, owner: ownerToSheet(owner), key });
 
 export interface NewRequest {
+  customer?: string;
   agentName: string;
   deal: string;
   kind: string;
@@ -287,6 +369,7 @@ export const addRequest = (r: NewRequest) =>
   post({
     action: 'addRequest',
     request: {
+      'Müşteri': r.customer ?? '',
       'Danışman': r.agentName,
       'Tür': r.deal,
       'Cins': r.kind,
@@ -298,6 +381,23 @@ export const addRequest = (r: NewRequest) =>
     },
   });
 export const closeRequest = (id: string) => post({ action: 'closeRequest', id });
+
+// Müşteri takibi: tarihler yyyy-MM-dd metni
+export interface RequestFollowUp {
+  nextCall?: string;
+  lastContact?: string;
+  contactNote?: string;
+}
+export const updateRequest = (id: string, f: RequestFollowUp) =>
+  post({
+    action: 'updateRequest',
+    id,
+    fields: {
+      ...(f.nextCall !== undefined ? { 'Sonraki Arama': f.nextCall } : {}),
+      ...(f.lastContact !== undefined ? { 'Son Görüşme': f.lastContact } : {}),
+      ...(f.contactNote !== undefined ? { 'Görüşme Notu': f.contactNote } : {}),
+    },
+  });
 
 export interface NewListing {
   title: string;

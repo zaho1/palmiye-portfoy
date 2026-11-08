@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowLeft, Eye, EyeOff, Menu, MessageCircle, Phone, Search, X } from 'lucide-react';
 import type { ActivityEntry, CustomerRequest, ListingStatus, Property } from './types';
 import {
@@ -8,28 +8,35 @@ import {
   closeRequest,
   deleteNote,
   fetchActivity,
+  fetchAdvisors,
+  fetchApiInfo,
   fetchProperties,
   fetchRequests,
   formatLocation,
   formatPhone,
   phoneDigits,
   recordSale,
+  setApiToken,
   setApiUser,
+  setAuthFailureHandler,
+  setServerEnforced,
   setLocation,
   touchListing,
   updatePrice,
+  updateRequest,
   updateStatus,
   type NewListing,
   type NewRequest,
+  type RequestFollowUp,
   type SaleRecord,
 } from './lib/sheets';
 import { cleanActivity, forgetPatch, mergeProperties, rememberAdd, rememberDeletedNote, rememberPatch } from './lib/pending';
 import { matchesFor } from './lib/match';
-import { OFFICE_AUTH_CONFIG } from './config/auth';
+import { directoryStore, personOf, useDirectory } from './lib/people';
 import { parseHash, type Route } from './lib/route';
 import { clearOfflineData, isMobileViewport, useIsMobile } from './lib/pwa';
 import { clearPersonal } from './lib/personal';
-import Login from './components/Login';
+import Login, { type LoginSession } from './components/Login';
 import ListingList from './components/ListingList';
 import ListingDetail, { type DetailActions } from './components/ListingDetail';
 import AddListing from './components/AddListing';
@@ -94,7 +101,14 @@ const readStored = (key: string) => {
 
 export default function App() {
   const [currentUser, setCurrentUser] = useState<string | null>(() => readStored('palmiye_user'));
-  const [officeKey, setOfficeKey] = useState(() => readStored('palmiye_key') ?? '');
+  // Kişisel hesapla girildiyse "anahtar" oturum jetonudur; eskiden ortak ofis şifresiydi
+  const [officeKey, setOfficeKey] = useState(() => {
+    const key = readStored('palmiye_key') ?? '';
+    if (readStored('palmiye_mode') === 'server') setApiToken(key);
+    return key;
+  });
+  const [profileName, setProfileName] = useState(() => readStored('palmiye_name') ?? '');
+  const directory = useDirectory();
   const [properties, setProperties] = useState<Property[]>([]);
   const [requests, setRequests] = useState<CustomerRequest[]>([]);
   const [activity, setActivity] = useState<ActivityEntry[]>([]);
@@ -127,8 +141,10 @@ export default function App() {
   );
 
   const userName = useMemo(
-    () => OFFICE_AUTH_CONFIG.allowedUsers.find((u) => u.email === currentUser)?.name ?? currentUser ?? '',
-    [currentUser],
+    () => profileName || personOf(currentUser ?? '')?.name || currentUser || '',
+    // rehber değişince ad güncellenir
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [profileName, currentUser, directory],
   );
 
   useEffect(() => {
@@ -206,30 +222,63 @@ export default function App() {
     };
   }, [currentUser, fetchAll]);
 
-  const handleLoginSuccess = (email: string, password: string, remember: boolean) => {
+  const handleLoginSuccess = (session: LoginSession, remember: boolean) => {
     try {
       const store = remember ? localStorage : sessionStorage;
-      store.setItem('palmiye_user', email);
-      store.setItem('palmiye_key', password);
+      store.setItem('palmiye_user', session.email);
+      store.setItem('palmiye_key', session.key);
+      store.setItem('palmiye_mode', session.mode);
+      store.setItem('palmiye_name', session.user?.name ?? '');
     } catch {
       /* depolama kapalıysa oturum yalnızca bu sekmede açık kalır */
     }
-    setOfficeKey(password);
+    setApiToken(session.mode === 'server' ? session.key : '');
+    setProfileName(session.user?.name ?? '');
+    setOfficeKey(session.key);
     setLoading(true);
-    setCurrentUser(email);
+    setCurrentUser(session.email);
   };
 
   const handleLogout = () => {
-    ['palmiye_user', 'palmiye_key'].forEach((k) => {
+    ['palmiye_user', 'palmiye_key', 'palmiye_mode', 'palmiye_name'].forEach((k) => {
       localStorage.removeItem(k);
       sessionStorage.removeItem(k);
     });
     clearOfflineData();
     clearPersonal();
+    directoryStore.clear();
+    setApiToken('');
+    setProfileName('');
     setCurrentUser(null);
     setOfficeKey('');
     window.location.hash = '';
   };
+
+  // Sunucu oturumu geçersiz sayarsa (süre doldu, hesap kapatıldı) giriş ekranına dönülür
+  const logoutRef = useRef(handleLogout);
+  logoutRef.current = handleLogout;
+  useEffect(() => {
+    setAuthFailureHandler(() => {
+      try {
+        sessionStorage.setItem('palmiye_notice', 'Oturumunuz sona erdi. Lütfen yeniden giriş yapın.');
+      } catch {
+        /* önemsiz */
+      }
+      logoutRef.current();
+    });
+    return () => setAuthFailureHandler(null);
+  }, []);
+
+  // Zorunlu giriş açıksa herkese açık CSV yedeği kapanır; ofis rehberi (30-40 kişi) sunucudan gelir
+  useEffect(() => {
+    if (!currentUser) return;
+    fetchApiInfo().then((i) => setServerEnforced(!!i?.enforced));
+    if (readStored('palmiye_mode') === 'server') {
+      fetchAdvisors()
+        .then((rows) => rows.length && directoryStore.set(rows))
+        .catch(() => undefined);
+    }
+  }, [currentUser]);
 
   const logLocal = useCallback(
     (action: string, title: string, detail = '') =>
@@ -357,12 +406,25 @@ export default function App() {
         maxPrice: parseInt(r.maxPrice.replace(/[^0-9]/g, '') || '0', 10),
         minSize: parseInt(r.minSize.replace(/[^0-9]/g, '') || '0', 10),
         note: r.note,
+        customer: r.customer ?? '',
+        nextCall: '',
+        lastContact: '',
+        contactNote: '',
       };
       setRequests((prev) => [local, ...prev]);
       logLocal('Müşteri talebi eklendi', '', r.note);
       write(() => addRequest(r), () => setRequests((prev) => prev.filter((x) => x.id !== local.id)), 'Talep');
     },
     [logLocal, write],
+  );
+
+  const saveFollowUp = useCallback(
+    (r: CustomerRequest, f: RequestFollowUp) => {
+      setRequests((prev) => prev.map((x) => (x.id === r.id ? { ...x, ...f } : x)));
+      setToast({ message: 'Görüşme kaydedildi.' });
+      write(() => updateRequest(r.id, f), () => setRequests((prev) => prev.map((x) => (x.id === r.id ? r : x))), 'Görüşme');
+    },
+    [write],
   );
 
   const finishRequest = useCallback(
@@ -423,6 +485,7 @@ export default function App() {
           onLogout={handleLogout}
           onCreateRequest={createRequest}
           onCloseRequest={finishRequest}
+          onFollowUp={saveFollowUp}
           onListingSaved={handleListingSaved}
           notify={(message) => setToast({ message })}
         />
@@ -592,7 +655,7 @@ export default function App() {
                     />
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {OFFICE_AUTH_CONFIG.allowedUsers
+                    {directory
                       .filter((user) => !agentSearch.trim() || user.name.toLocaleLowerCase('tr').includes(agentSearch.toLocaleLowerCase('tr')))
                       .map((user) => {
                       const agentCount = properties.filter(p => p.agentName === user.name && p.status === 'Aktif').length;

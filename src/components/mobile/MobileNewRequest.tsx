@@ -24,6 +24,7 @@ const grouped = (s: string) => (s ? Number(s).toLocaleString('tr-TR') : '');
 // Müşteri talebi: tek ekran, büyük alanlar, sayı alanlarında sayısal klavye
 export default function MobileNewRequest({ properties, defaultAgentName, ready, onCreate, onDone }: Props) {
   const makeForm = (): NewRequest => ({
+    customer: '',
     agentName: defaultAgentName,
     deal: 'Satılık',
     kind: '',
@@ -40,7 +41,7 @@ export default function MobileNewRequest({ properties, defaultAgentName, ready, 
   });
   const [form, setForm] = useState<NewRequest>(() => ({ ...makeForm(), ...(restored?.form as Partial<NewRequest> | undefined) }));
   const [showRestored, setShowRestored] = useState(true);
-  const dirty = !!(form.kind || form.region || form.rooms || form.maxPrice || form.minSize || form.note.trim());
+  const dirty = !!(form.customer || form.kind || form.region || form.rooms || form.maxPrice || form.minSize || form.note.trim());
   useEffect(() => {
     const t = window.setTimeout(() => {
       if (dirty) requestDraftStore.set({ savedAt: Date.now(), form: { ...form } });
@@ -116,6 +117,10 @@ export default function MobileNewRequest({ properties, defaultAgentName, ready, 
             </button>
           </div>
         )}
+        <MField label="Müşteri (ad veya takma ad)" htmlFor="mr-customer">
+          <input id="mr-customer" autoComplete="off" enterKeyHint="next" placeholder="Örn. Ahmet Bey, Çiftlikköy'lü" value={form.customer ?? ''} onChange={(e) => patch({ customer: e.target.value })} className="field-lg" />
+        </MField>
+
         <MField label="İşlem">
           <Segmented label="Satılık veya kiralık" value={form.deal} options={['Satılık', 'Kiralık']} onChange={(v) => patch({ deal: v })} />
         </MField>
@@ -166,7 +171,7 @@ export default function MobileNewRequest({ properties, defaultAgentName, ready, 
 
         <MField label="Not" htmlFor="mr-note">
           <textarea id="mr-note" rows={3} placeholder="Örn. Okula yakın, bahçeli olsun" value={form.note} onChange={(e) => patch({ note: e.target.value })} className="field-lg py-3 leading-6" />
-          <p className="text-[13px] text-faint mt-1.5">Müşterinin telefonunu buraya yazmayın; talebi siz takip edersiniz.</p>
+          <p className="text-[13px] text-faint mt-1.5">Müşterinin telefon numarasını yazmayın; görüşme notlarını talep kartından eklersiniz.</p>
         </MField>
 
         <div>

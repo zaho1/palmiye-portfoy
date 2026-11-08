@@ -1,12 +1,13 @@
-import { useMemo, type ReactNode } from 'react';
-import { Eye, EyeOff, Heart, LogOut, RefreshCw, Settings as SettingsIcon, UserRound } from 'lucide-react';
+import { useMemo, useState, type ReactNode } from 'react';
+import { Eye, EyeOff, Heart, Lock, LogOut, RefreshCw, Settings as SettingsIcon, UserRound } from 'lucide-react';
 import type { Property } from '../../types';
-import { formatPhone } from '../../lib/sheets';
-import { OFFICE_AUTH_CONFIG } from '../../config/auth';
+import { changePassword, formatPhone, getApiToken } from '../../lib/sheets';
+import { personOf } from '../../lib/people';
 import { useSettings, type ThemeChoice } from '../../lib/settings';
 import type { SyncState } from '../Sidebar';
 import { InstallCard } from './InstallApp';
-import { MField, Segmented, btnBigDanger } from './controls';
+import { PushSettings } from './NotificationsCard';
+import { MField, Segmented, Sheet, btnBig, btnBigDanger, btnBigSecondary } from './controls';
 import { ChevronRightIcon } from './icons';
 
 interface Props {
@@ -43,6 +44,7 @@ function Row({ href, onClick, icon, label, value }: { href?: string; onClick?: (
 // "Ben" sekmesi: profil, uygulamayı yükle, kısayollar, tema, çıkış
 export default function MobileMe({ properties, userName, userEmail, sync, presentMode, onTogglePresent, onRefresh, onLogout }: Props) {
   const { settings, update, favorites } = useSettings();
+  const [pwOpen, setPwOpen] = useState(false);
   const key = userName.toLocaleLowerCase('tr');
   const counts = useMemo(
     () => ({
@@ -51,7 +53,7 @@ export default function MobileMe({ properties, userName, userEmail, sync, presen
     }),
     [properties, key, favorites],
   );
-  const phone = settings.phone || OFFICE_AUTH_CONFIG.allowedUsers.find((u) => u.email === userEmail)?.phone || '';
+  const phone = settings.phone || personOf(userEmail)?.phone || '';
   const loadedText = sync.loadedAt ? sync.loadedAt.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' }) : '—';
   const status = sync.error ? 'Sheets okunamadı' : !sync.v2Ready ? 'İlanlar bağlı · Apps Script v2 bekleniyor' : 'Google Sheets bağlı';
 
@@ -71,11 +73,13 @@ export default function MobileMe({ properties, userName, userEmail, sync, presen
       </section>
 
       <InstallCard />
+      <PushSettings />
 
       <section className="bg-surface rounded-2xl overflow-hidden">
         <Row href="#/benim" icon={<UserRound />} label="Benim ilanlarım" value={String(counts.mine)} />
         <Row href="#/favoriler" icon={<Heart />} label="Favorilerim" value={String(counts.favorites)} />
         <Row href="#/ayarlar" icon={<SettingsIcon />} label="Ayarlar" />
+        {getApiToken() && <Row onClick={() => setPwOpen(true)} icon={<Lock />} label="Şifremi değiştir" />}
       </section>
 
       <section className="bg-surface rounded-2xl p-4 space-y-5">
@@ -120,6 +124,62 @@ export default function MobileMe({ properties, userName, userEmail, sync, presen
       <button onClick={onLogout} className={`${btnBigDanger} w-full`}>
         <LogOut className="w-5 h-5" /> Oturumu kapat
       </button>
+
+      {pwOpen && <PasswordSheet onClose={() => setPwOpen(false)} />}
     </div>
+  );
+}
+
+function PasswordSheet({ onClose }: { onClose: () => void }) {
+  const [current, setCurrent] = useState('');
+  const [next, setNext] = useState('');
+  const [again, setAgain] = useState('');
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [done, setDone] = useState(false);
+
+  const submit = async () => {
+    setError('');
+    if (!current) return setError('Mevcut şifrenizi yazın.');
+    if (next.length < 8) return setError('Yeni şifre en az 8 karakter olmalı.');
+    if (next !== again) return setError('Yeni şifreler aynı değil.');
+    setBusy(true);
+    try {
+      const res = await changePassword(current, next);
+      if (res.success) setDone(true);
+      else setError(res.message || 'Şifre değiştirilemedi.');
+    } catch {
+      setError('Sunucuya ulaşılamadı. Tekrar deneyin.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Sheet
+      title="Şifremi değiştir"
+      onClose={onClose}
+      footer={
+        done ? (
+          <button onClick={onClose} className={`${btnBig} w-full`}>Tamam</button>
+        ) : (
+          <div className="flex gap-3">
+            <button onClick={onClose} className={`${btnBigSecondary} flex-1`}>Vazgeç</button>
+            <button onClick={submit} disabled={busy} className={`${btnBig} flex-[2]`}>{busy ? 'Kaydediliyor…' : 'Değiştir'}</button>
+          </div>
+        )
+      }
+    >
+      {done ? (
+        <p className="text-[15px]">Şifreniz değiştirildi. Bu telefonda oturumunuz açık kalır.</p>
+      ) : (
+        <div className="space-y-4">
+          <MField label="Mevcut şifre" htmlFor="pw-cur"><input id="pw-cur" type="password" autoComplete="current-password" value={current} onChange={(e) => setCurrent(e.target.value)} className="field-lg" /></MField>
+          <MField label="Yeni şifre (en az 8 karakter)" htmlFor="pw-new"><input id="pw-new" type="password" autoComplete="new-password" value={next} onChange={(e) => setNext(e.target.value)} className="field-lg" /></MField>
+          <MField label="Yeni şifre (tekrar)" htmlFor="pw-again"><input id="pw-again" type="password" autoComplete="new-password" value={again} onChange={(e) => setAgain(e.target.value)} className="field-lg" /></MField>
+          {error && <p role="alert" className="text-[14px] text-negative">{error}</p>}
+        </div>
+      )}
+    </Sheet>
   );
 }

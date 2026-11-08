@@ -50,6 +50,11 @@ export function initPwa() {
   // Geliştirme sunucusunda önbellek kafa karıştırır; yalnızca yayın sürümünde
   if (import.meta.env.PROD && 'serviceWorker' in navigator) {
     // Sayfa açıkken yeni sürümün servis çalışanı devreye girerse "Yeni sürüm hazır" uyarısı çıkar
+    // Bildirime dokunulunca servis çalışanı açık uygulamayı ilgili ekrana yönlendirir
+    navigator.serviceWorker.addEventListener('message', (e) => {
+      const d = e.data as { type?: string; hash?: string } | null;
+      if (d?.type === 'goto' && typeof d.hash === 'string' && d.hash.startsWith('#/')) window.location.hash = d.hash;
+    });
     const hadController = !!navigator.serviceWorker.controller;
     navigator.serviceWorker.addEventListener('controllerchange', () => {
       if (!hadController) return;

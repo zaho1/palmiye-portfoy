@@ -3,14 +3,14 @@ import { useSyncExternalStore } from 'react';
 // Kişiye ve cihaza özel küçük kayıtlar (son baktıklarım, kayıtlı filtreler, taslaklar).
 // Yalnızca bu telefonda tutulur; ortak bilgisayarda çıkış yapılınca silinir.
 
-interface Store<T> {
+export interface Store<T> {
   get: () => T;
   set: (value: T) => void;
   clear: () => void;
   subscribe: (cb: () => void) => () => void;
 }
 
-function makeStore<T>(key: string, initial: T): Store<T> {
+export function makeStore<T>(key: string, initial: T): Store<T> {
   const subs = new Set<() => void>();
   let raw: string | null | undefined;
   let cache: T = initial;

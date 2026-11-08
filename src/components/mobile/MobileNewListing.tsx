@@ -12,7 +12,7 @@ import {
   normalizeAdaParsel,
   type NewListing,
 } from '../../lib/sheets';
-import { OFFICE_AUTH_CONFIG } from '../../config/auth';
+import { getDirectory } from '../../lib/people';
 import { useSettings } from '../../lib/settings';
 import { haptic, listingDraftStore } from '../../lib/personal';
 import { Thumb } from '../ui';
@@ -75,7 +75,7 @@ export default function MobileNewListing({ properties, defaultAgentName, onSaved
     sahibindenUrl: '',
     adaParsel: '',
     agentName: defaultAgentName,
-    agentPhone: settings.phone || OFFICE_AUTH_CONFIG.allowedUsers.find((u) => u.name === defaultAgentName)?.phone || '',
+    agentPhone: settings.phone || getDirectory().find((u) => u.name === defaultAgentName)?.phone || '',
     whatsappUrl: '',
     region: '',
     neighborhood: '',
