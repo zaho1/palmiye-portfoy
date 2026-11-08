@@ -120,30 +120,27 @@ export default function MobileTeam({ properties, userEmail }: Props) {
               <p className="text-[13px] text-muted mt-1">Bu kodu kişiye iletin. İlk girişte "İlk kez mi giriş yapıyorsunuz?" deyip şifre belirleyecek. ({created.email})</p>
             </div>
           )}
-          {accounts && (
+          {/* Aktifler zaten aşağıdaki listede (ara / WhatsApp). Burada yalnızca pasif hesaplar, tekrar açabilmek için. */}
+          {accounts && accounts.some((a) => !a.active) && (
             <div className="space-y-2">
-              <p className="text-[13px] text-faint">Hesaplar</p>
+              <p className="text-[13px] text-faint">Pasif hesaplar</p>
               <ul className="divide-y divide-rule">
-                {accounts.map((a) => {
-                  const self = a.email.toLowerCase() === userEmail.toLowerCase();
-                  return (
-                    <li key={a.email} className="py-2 flex items-center gap-3">
-                      <span className="flex-1 min-w-0">
-                        <span className="block text-[15px] truncate">{a.name}{self ? ' · sen' : ''}</span>
-                        <span className="block text-[12px] text-faint truncate">{a.role}</span>
-                      </span>
-                      <button
-                        type="button"
-                        disabled={self || busyEmail === a.email}
-                        onClick={() => toggleActive(a)}
-                        aria-pressed={a.active}
-                        className={`min-h-9 px-3 rounded-full text-[14px] font-medium disabled:opacity-50 ${a.active ? 'bg-positive-bg text-positive' : 'bg-raised text-muted'}`}
-                      >
-                        {busyEmail === a.email ? '…' : a.active ? 'Aktif' : 'Pasif'}
-                      </button>
-                    </li>
-                  );
-                })}
+                {accounts.filter((a) => !a.active).map((a) => (
+                  <li key={a.email} className="py-2 flex items-center gap-3">
+                    <span className="flex-1 min-w-0">
+                      <span className="block text-[15px] truncate">{a.name}</span>
+                      <span className="block text-[12px] text-faint truncate">{a.role}</span>
+                    </span>
+                    <button
+                      type="button"
+                      disabled={busyEmail === a.email}
+                      onClick={() => toggleActive(a)}
+                      className="min-h-9 px-3 rounded-full text-[14px] font-medium bg-raised text-ink disabled:opacity-50"
+                    >
+                      {busyEmail === a.email ? '…' : 'Aktif yap'}
+                    </button>
+                  </li>
+                ))}
               </ul>
             </div>
           )}
