@@ -1,3 +1,4 @@
+import { isAdmin } from '../lib/admin';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Check, ChevronLeft, ChevronRight, Copy, ExternalLink, FileText, Lock, MapPin, MessageCircle, Phone, RotateCcw, Share2, Trash2 } from 'lucide-react';
 import type { ActivityEntry, CustomerRequest, ListingStatus, OwnerInfo, Property } from '../types';
@@ -180,9 +181,11 @@ export default function ListingDetail({ property: p, properties, presentMode, re
               </button>
               <button onClick={() => setPending('sold')} className={btnSecondary}>Satıldı / kiralandı</button>
               <button onClick={() => actions.status(p, 'Pasif')} className={btnSecondary}>Pasife al</button>
-              <button onClick={() => setPending('delete')} className={btnDanger} aria-label="İlanı sil">
-                <Trash2 className="w-4 h-4" /> <span className="hidden sm:inline">Sil</span>
-              </button>
+              {isAdmin(currentUser) && (
+                <button onClick={() => setPending('delete')} className={btnDanger} aria-label="İlanı sil">
+                  <Trash2 className="w-4 h-4" /> <span className="hidden sm:inline">Sil</span>
+                </button>
+              )}
             </>
           ) : (
             <button onClick={() => actions.status(p, 'Aktif')} className={btnSecondary}>

@@ -349,6 +349,9 @@ async function post(body: Record<string, unknown>) {
 }
 
 export const updateStatus = (title: string, status: ListingStatus) => post({ action: 'updateStatus', title, status });
+// Yönetici: yeni danışman hesabı (davet kodu döner)
+export const addAdvisor = (a: { name: string; email: string; phone: string; role: 'Danışman' | 'Yönetici' }) =>
+  postRead<{ success?: boolean; message?: string; invite?: string }>({ action: 'addAdvisor', ...a });
 export const touchListing = (title: string) => post({ action: 'touch', title });
 export const updatePrice = (title: string, price: string) => post({ action: 'updatePrice', title, price });
 export const addNote = (title: string, note: string) => post({ action: 'addNote', title, note });

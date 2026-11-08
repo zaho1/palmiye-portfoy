@@ -806,6 +806,10 @@ function doPost(e) {
       if (row < 0) return json_({ success: false, message: 'İlan bulunamadı' });
 
       if (data.action === 'updateStatus') {
+        // Silme yalnızca yöneticiler içindir
+        if (data.status === 'Silindi' && !(g.advisor && ADMIN_EMAILS.indexOf(g.advisor.email) !== -1)) {
+          return json_({ success: false, message: 'İlan silme yalnızca yöneticilere açık.' });
+        }
         setCells_(sh, row, map, { 'Durum': data.status, 'Son Güncelleme': now_() });
         if (data.status === 'Silindi') sh.hideRows(row); // satır silinmez (ID'ler kaymasın), sadece gizlenir
         log_(who, 'Durum: ' + data.status, data.title, '');
@@ -903,6 +907,21 @@ function doPost(e) {
       appendObject_(sheet_('Talepler', ['Talep No', 'Tarih', 'Durum']), req);
       log_(who, 'Müşteri talebi eklendi', '', req['Talep No']);
       return json_({ success: true });
+    }
+
+    // Yönetici: manuel danışman ekleme (hesap açılmadan önce davet kodu üretilir)
+    if (data.action === 'addAdvisor') {
+      if (!(g.advisor && ADMIN_EMAILS.indexOf(g.advisor.email) !== -1)) return json_({ success: false, message: 'Yetkisiz' });
+      var email = String(data.email || '').trim().toLowerCase();
+      var name = String(data.name || '').trim();
+      if (!email || email.indexOf('@') < 0 || !name) return json_({ success: false, message: 'Ad ve e-posta zorunlu.' });
+      if (advisorByEmail_(email)) return json_({ success: false, message: 'Bu e-posta zaten kayıtlı.' });
+      var code = inviteCode_();
+      var sheetAdv = sheet_('Danışmanlar', ADV_HEADERS);
+      appendObject_(sheetAdv, { 'E-posta': email, 'Ad Soyad': name, 'Telefon': String(data.phone || ''), 'Rol': data.role === 'Yönetici' ? 'Yönetici' : 'Danışman', 'Aktif': 'Evet', 'Davet Kodu': code });
+      clearAdvisorCache_();
+      log_(who, 'Danışman eklendi', name, email);
+      return json_({ success: true, invite: code });
     }
 
     if (data.action === 'closeRequest') {

@@ -1,9 +1,9 @@
 import { useMemo, useState } from 'react';
-import { MessageCircle, Phone, Search } from 'lucide-react';
+import { MessageCircle, Phone, Search, UserPlus } from 'lucide-react';
 import type { Property } from '../../types';
-import { formatPhone, phoneDigits } from '../../lib/sheets';
-import { isHiddenPerson } from '../../lib/admin';
-import { useDirectory } from '../../lib/people';
+import { addAdvisor, fetchAdvisors, formatPhone, phoneDigits } from '../../lib/sheets';
+import { isAdmin, isHiddenPerson } from '../../lib/admin';
+import { directoryStore, useDirectory } from '../../lib/people';
 import { ChevronRightIcon } from './icons';
 
 interface Props {
@@ -23,6 +23,31 @@ const initials = (name: string) =>
 // Ofis rehberi: herkes, aktif ilan sayısı, tek dokunuşla arama ve WhatsApp
 export default function MobileTeam({ properties, userEmail }: Props) {
   const everyone = useDirectory();
+  const admin = isAdmin(userEmail);
+  const [adding, setAdding] = useState(false);
+  const [form, setForm] = useState({ name: '', email: '', phone: '', role: 'Danışman' as 'Danışman' | 'Yönetici' });
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
+  const [created, setCreated] = useState<{ name: string; email: string; invite: string } | null>(null);
+
+  const submit = async () => {
+    setErr('');
+    if (!form.name.trim() || !form.email.trim()) return setErr('Ad ve e-posta zorunlu.');
+    setBusy(true);
+    try {
+      const res = await addAdvisor({ ...form, name: form.name.trim(), email: form.email.trim().toLowerCase() });
+      if (!res.success || !res.invite) throw new Error(res.message || 'Eklenemedi');
+      setCreated({ name: form.name.trim(), email: form.email.trim().toLowerCase(), invite: res.invite });
+      setForm({ name: '', email: '', phone: '', role: 'Danışman' });
+      setAdding(false);
+      fetchAdvisors().then((rows) => rows.length && directoryStore.set(rows)).catch(() => {});
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : 'Eklenemedi');
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const directory = useMemo(() => everyone.filter((u) => !isHiddenPerson(u.email)), [everyone]);
   const [q, setQ] = useState('');
 
@@ -63,6 +88,39 @@ export default function MobileTeam({ properties, userEmail }: Props) {
         <h1 className="text-2xl font-semibold">Danışmanlar</h1>
         <span className="text-[14px] text-faint num">{directory.length} kişi</span>
       </div>
+
+      {admin && (
+        <section className="bg-surface rounded-2xl p-4 space-y-3">
+          {created && (
+            <div className="bg-raised rounded-xl p-3">
+              <p className="text-[14px]">{created.name} eklendi. Davet kodu:</p>
+              <p className="text-[22px] font-semibold num tracking-widest mt-1">{created.invite}</p>
+              <p className="text-[13px] text-muted mt-1">Bu kodu kişiye iletin. İlk girişte "İlk kez mi giriş yapıyorsunuz?" deyip şifre belirleyecek. ({created.email})</p>
+            </div>
+          )}
+          {!adding ? (
+            <button type="button" onClick={() => setAdding(true)} className="w-full min-h-12 flex items-center gap-3 text-left">
+              <UserPlus className="w-6 h-6 text-muted" />
+              <span className="text-[16px]">Danışman ekle</span>
+            </button>
+          ) : (
+            <div className="space-y-3">
+              <input className="field-lg bg-raised border-transparent" placeholder="Ad Soyad" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+              <input className="field-lg bg-raised border-transparent" placeholder="E-posta" inputMode="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
+              <input className="field-lg bg-raised border-transparent" placeholder="Telefon" inputMode="tel" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
+              <select className="field-lg bg-raised border-transparent" value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value as 'Danışman' | 'Yönetici' })}>
+                <option value="Danışman">Danışman</option>
+                <option value="Yönetici">Yönetici</option>
+              </select>
+              {err && <p className="text-[14px] text-negative">{err}</p>}
+              <div className="flex gap-2">
+                <button type="button" disabled={busy} onClick={submit} className="flex-1 min-h-12 rounded-full bg-ink text-ground font-medium disabled:opacity-60">{busy ? 'Ekleniyor…' : 'Ekle'}</button>
+                <button type="button" onClick={() => { setAdding(false); setErr(''); }} className="min-h-12 px-5 rounded-full bg-raised">Vazgeç</button>
+              </div>
+            </div>
+          )}
+        </section>
+      )}
 
       <div className="relative">
         <Search className="w-5 h-5 absolute left-3.5 top-1/2 -translate-y-1/2 text-faint" aria-hidden="true" />
