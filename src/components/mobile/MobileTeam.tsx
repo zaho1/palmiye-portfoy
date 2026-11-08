@@ -1,7 +1,7 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { MessageCircle, Phone, Search, UserPlus } from 'lucide-react';
 import type { Property } from '../../types';
-import { addAdvisor, fetchAdvisors, formatPhone, phoneDigits } from '../../lib/sheets';
+import { addAdvisor, fetchAdvisors, fetchAllAdvisors, formatPhone, phoneDigits, setAdvisorActive, type AdvisorRow } from '../../lib/sheets';
 import { isAdmin, isHiddenPerson } from '../../lib/admin';
 import { directoryStore, useDirectory } from '../../lib/people';
 import { ChevronRightIcon } from './icons';
@@ -29,6 +29,27 @@ export default function MobileTeam({ properties, userEmail }: Props) {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
   const [created, setCreated] = useState<{ name: string; email: string; invite: string } | null>(null);
+  const [accounts, setAccounts] = useState<AdvisorRow[] | null>(null);
+  const [busyEmail, setBusyEmail] = useState('');
+
+  const reloadAccounts = () => {
+    if (!admin) return;
+    fetchAllAdvisors().then(setAccounts);
+  };
+  useEffect(reloadAccounts, [admin]);
+
+  const toggleActive = async (a: AdvisorRow) => {
+    setBusyEmail(a.email);
+    try {
+      await setAdvisorActive(a.email, !a.active);
+      setAccounts((prev) => (prev ?? []).map((x) => (x.email === a.email ? { ...x, active: !a.active } : x)));
+      fetchAdvisors().then((rows) => rows.length && directoryStore.set(rows)).catch(() => {});
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : 'Güncellenemedi');
+    } finally {
+      setBusyEmail('');
+    }
+  };
 
   const submit = async () => {
     setErr('');
@@ -38,6 +59,7 @@ export default function MobileTeam({ properties, userEmail }: Props) {
       const res = await addAdvisor({ ...form, name: form.name.trim(), email: form.email.trim().toLowerCase() });
       if (!res.success || !res.invite) throw new Error(res.message || 'Eklenemedi');
       setCreated({ name: form.name.trim(), email: form.email.trim().toLowerCase(), invite: res.invite });
+      reloadAccounts();
       setForm({ name: '', email: '', phone: '', role: 'Danışman' });
       setAdding(false);
       fetchAdvisors().then((rows) => rows.length && directoryStore.set(rows)).catch(() => {});
@@ -98,6 +120,34 @@ export default function MobileTeam({ properties, userEmail }: Props) {
               <p className="text-[13px] text-muted mt-1">Bu kodu kişiye iletin. İlk girişte "İlk kez mi giriş yapıyorsunuz?" deyip şifre belirleyecek. ({created.email})</p>
             </div>
           )}
+          {accounts && (
+            <div className="space-y-2">
+              <p className="text-[13px] text-faint">Hesaplar</p>
+              <ul className="divide-y divide-rule">
+                {accounts.map((a) => {
+                  const self = a.email.toLowerCase() === userEmail.toLowerCase();
+                  return (
+                    <li key={a.email} className="py-2 flex items-center gap-3">
+                      <span className="flex-1 min-w-0">
+                        <span className="block text-[15px] truncate">{a.name}{self ? ' · sen' : ''}</span>
+                        <span className="block text-[12px] text-faint truncate">{a.role}</span>
+                      </span>
+                      <button
+                        type="button"
+                        disabled={self || busyEmail === a.email}
+                        onClick={() => toggleActive(a)}
+                        aria-pressed={a.active}
+                        className={`min-h-9 px-3 rounded-full text-[14px] font-medium disabled:opacity-50 ${a.active ? 'bg-positive-bg text-positive' : 'bg-raised text-muted'}`}
+                      >
+                        {busyEmail === a.email ? '…' : a.active ? 'Aktif' : 'Pasif'}
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          )}
+
           {!adding ? (
             <button type="button" onClick={() => setAdding(true)} className="w-full min-h-12 flex items-center gap-3 text-left">
               <UserPlus className="w-6 h-6 text-muted" />

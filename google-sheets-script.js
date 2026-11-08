@@ -909,6 +909,17 @@ function doPost(e) {
       return json_({ success: true });
     }
 
+    // Yönetici: hesabı aktif/pasif yapar (pasif hesap giriş yapamaz, listelerde görünmez)
+    if (data.action === 'setAdvisorActive') {
+      if (!(g.advisor && ADMIN_EMAILS.indexOf(g.advisor.email) !== -1)) return json_({ success: false, message: 'Yetkisiz' });
+      var target = advisorByEmail_(data.email);
+      if (!target) return json_({ success: false, message: 'Danışman bulunamadı' });
+      if (target.email === g.advisor.email && !data.active) return json_({ success: false, message: 'Kendi hesabınızı pasif yapamazsınız.' });
+      setAdvisorCells_(target, { 'Aktif': data.active ? 'Evet' : 'Hayır' });
+      log_(who, data.active ? 'Hesap aktifleştirildi' : 'Hesap pasifleştirildi', target.name, target.email);
+      return json_({ success: true });
+    }
+
     // Yönetici: manuel danışman ekleme (hesap açılmadan önce davet kodu üretilir)
     if (data.action === 'addAdvisor') {
       if (!(g.advisor && ADMIN_EMAILS.indexOf(g.advisor.email) !== -1)) return json_({ success: false, message: 'Yetkisiz' });
@@ -991,6 +1002,11 @@ function doGet(e) {
       return json_({ success: true, rows: readSheet_('Talepler').filter(function (r) { return canSeeClosed || String(r['Durum'] || '').trim() !== 'Kapandı'; }) });
     }
     if (p.action === 'log') return json_({ success: true, rows: readSheet_('Hareketler').reverse().slice(0, 200) });
+    // Yönetici: pasif dahil tüm hesaplar (aktif/pasif düğmesi için)
+    if (p.action === 'advisorsAll') {
+      if (!g.advisor || ADMIN_EMAILS.indexOf(g.advisor.email) === -1) return json_({ success: false, message: 'Yetkisiz' });
+      return json_({ success: true, rows: advisors_().map(function (a) { return { email: a.email, name: a.name, phone: a.phone, role: a.role, active: a.active }; }) });
+    }
     // Yönetici özeti: sadece yöneticiler (portföy değeri, bu ay satılanlar, danışman dağılımı)
     if (p.action === 'stats') {
       if (!g.advisor || ADMIN_EMAILS.indexOf(g.advisor.email) === -1) return json_({ success: false, message: 'Yetkisiz' });

@@ -282,6 +282,21 @@ export async function fetchAdminStats(): Promise<AdminStats | null> {
   return r.success && r.stats ? r.stats : null;
 }
 
+// Yönetici: pasif dahil tüm hesaplar. Yönetici değilse null.
+export interface AdvisorRow extends SessionUser { active: boolean }
+export async function fetchAllAdvisors(): Promise<AdvisorRow[] | null> {
+  try {
+    const r = await get<{ success?: boolean; rows?: AdvisorRow[] }>({ action: 'advisorsAll' });
+    return r.success && r.rows ? r.rows : null;
+  } catch {
+    return null;
+  }
+}
+export const setAdvisorActive = (email: string, active: boolean) =>
+  postRead<{ success?: boolean; message?: string }>({ action: 'setAdvisorActive', email, active }).then((r) => {
+    if (!r.success) throw new Error(r.message || 'Güncellenemedi');
+  });
+
 export async function fetchRequests(): Promise<CustomerRequest[]> {
   const { rows } = await get<{ rows?: Record<string, string>[] }>({ action: 'requests' });
   if (!rows) throw new Error("Apps Script v2 yayınlanmamış");
