@@ -1354,27 +1354,13 @@ function siteIlanlariniAktar() {
 }
 
 // ---------- Haftalık yedek ----------
-// Tüm Sheet'in (sayfalar + bu script) kopyasını Drive'daki "Palmiye Yedekleri" klasörüne alır.
-// Son BACKUP_KEEP yedek tutulur, eskileri Drive çöp kutusuna gider (30 gün orada kurtarılabilir).
-var BACKUP_FOLDER = 'Palmiye Yedekleri';
-var BACKUP_KEEP = 12;
-
+// Tüm Sheet'in (sayfalar + bu script) kopyasını Drive'a "Palmiye Yedek <tarih>" adıyla kaydeder.
+// Yalnızca Sheets iznini kullanır (Drive izni istemez); böylece yayındaki uygulamanın izinleri değişmez.
+// Eski yedekleri silmez: Drive'da "Palmiye Yedek" diye aratıp gerekirse elle temizleyin.
 function yedekAl() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var folders = DriveApp.getFoldersByName(BACKUP_FOLDER);
-  var folder = folders.hasNext() ? folders.next() : DriveApp.createFolder(BACKUP_FOLDER);
   var name = 'Palmiye Yedek ' + Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd HH:mm');
-  DriveApp.getFileById(ss.getId()).makeCopy(name, folder);
-
-  var files = folder.getFiles();
-  var list = [];
-  while (files.hasNext()) {
-    var f = files.next();
-    if (f.getName().indexOf('Palmiye Yedek ') === 0) list.push(f);
-  }
-  list.sort(function (a, b) { return b.getDateCreated() - a.getDateCreated(); });
-  for (var i = BACKUP_KEEP; i < list.length; i++) list[i].setTrashed(true);
-
+  ss.copy(name);
   log_('sistem', 'Yedek alındı', '', name);
   return name;
 }
