@@ -22,6 +22,7 @@ interface Props {
   actions: DetailActions;
   onRefresh: () => void;
   onFollowUp: (r: CustomerRequest, f: RequestFollowUp) => void;
+  onClearFeed?: () => void; // yalnızca yöneticide verilir
 }
 
 // Ofiste görünmesi anlamlı hareketler (not, konum gibi küçük işler listeyi doldurmasın)
@@ -32,12 +33,12 @@ function when(d: Date | null) {
   return daysSince(d) === 0 ? d.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' }) : relativeDay(d);
 }
 
-function Section({ title, hint, children }: { title: string; hint?: string; children: ReactNode }) {
+function Section({ title, hint, action, children }: { title: string; hint?: string; action?: ReactNode; children: ReactNode }) {
   return (
     <section>
-      <div className="flex items-baseline justify-between gap-3 mb-2 px-1">
+      <div className="flex items-center justify-between gap-3 mb-2 px-1">
         <h2 className="text-[15px] font-semibold">{title}</h2>
-        {hint && <span className="text-[13px] text-faint">{hint}</span>}
+        {action ?? (hint && <span className="text-[13px] text-faint">{hint}</span>)}
       </div>
       {children}
     </section>
@@ -46,8 +47,31 @@ function Section({ title, hint, children }: { title: string; hint?: string; chil
 
 const tile = 'h-[72px] rounded-2xl bg-surface px-4 flex items-center gap-3 text-[15px] font-medium active:bg-active';
 
+// Yönetici: akışı sıfırla. Yanlışlıkla basılmasın diye iki aşamalı (Sıfırla -> Emin misin?).
+function ClearFeedButton({ onClear }: { onClear: () => void }) {
+  const [asking, setAsking] = useState(false);
+  if (!asking) {
+    return (
+      <button type="button" onClick={() => setAsking(true)} className="min-h-9 px-3 -my-1 rounded-full text-[13px] text-muted active:bg-active">
+        Sıfırla
+      </button>
+    );
+  }
+  return (
+    <span className="flex items-center gap-2 -my-1">
+      <span className="text-[13px] text-muted">Akış boşalsın mı?</span>
+      <button type="button" onClick={() => { setAsking(false); onClear(); }} className="min-h-9 px-3 rounded-full text-[13px] font-medium bg-negative-bg text-negative">
+        Evet
+      </button>
+      <button type="button" onClick={() => setAsking(false)} className="min-h-9 px-3 rounded-full text-[13px] bg-raised">
+        Vazgeç
+      </button>
+    </span>
+  );
+}
+
 // Açılış ekranı: bugün ne yapmalıyım, benim için ne değişti, ofiste neler oluyor
-export default function MobileToday({ properties, requests, activity, userName, loading, actions, onRefresh, onFollowUp }: Props) {
+export default function MobileToday({ properties, requests, activity, userName, loading, actions, onRefresh, onFollowUp, onClearFeed }: Props) {
   const [following, setFollowing] = useState<CustomerRequest | null>(null);
   const { settings } = useSettings();
   const seen = useStore(seenMatchesStore);
@@ -268,7 +292,7 @@ export default function MobileToday({ properties, requests, activity, userName, 
       )}
 
       {feed.length > 0 && (
-        <Section title="Ofiste son hareketler">
+        <Section title="Ofiste son hareketler" action={onClearFeed ? <ClearFeedButton onClear={onClearFeed} /> : undefined}>
           <div className="bg-surface rounded-2xl divide-y divide-rule overflow-hidden">
             {feed.map((a, i) => {
               const p = byTitle.get(a.title.trim());

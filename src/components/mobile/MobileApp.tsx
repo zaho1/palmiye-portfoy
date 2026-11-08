@@ -46,6 +46,7 @@ export interface MobileAppProps {
   onCreateRequest: (r: NewRequest) => void;
   onCloseRequest: (r: CustomerRequest) => void;
   onFollowUp: (r: CustomerRequest, f: RequestFollowUp) => void;
+  onClearFeed?: () => void; // yalnızca yöneticide dolu
   onListingSaved: (l: NewListing) => void;
   notify: (message: string) => void;
 }
@@ -187,7 +188,7 @@ export default function MobileApp(p: MobileAppProps) {
       <PullToRefresh onRefresh={p.onRefresh} busy={p.loading} />
 
       {route.name === 'today' && (
-        <MobileToday properties={p.properties} requests={p.requests} activity={p.activity} userName={p.userName} loading={p.loading} actions={p.actions} onRefresh={p.onRefresh} onFollowUp={p.onFollowUp} />
+        <MobileToday properties={p.properties} requests={p.requests} activity={p.activity} userName={p.userName} loading={p.loading} actions={p.actions} onRefresh={p.onRefresh} onFollowUp={p.onFollowUp} onClearFeed={p.onClearFeed} />
       )}
 
       <div className={route.name === 'list' ? '' : 'hidden'}>

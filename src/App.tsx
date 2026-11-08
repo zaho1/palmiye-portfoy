@@ -7,6 +7,7 @@ import {
   cacheInfo,
   closeRequest,
   deleteNote,
+  clearActivityFeed,
   fetchActivity,
   fetchAdvisors,
   fetchApiInfo,
@@ -430,6 +431,18 @@ export default function App() {
     [logLocal, write],
   );
 
+  // Yönetici: ofiste son hareketler akışını sıfırlar (Sheet'teki kayıt silinmez)
+  const clearFeed = useCallback(async () => {
+    try {
+      const res = await clearActivityFeed();
+      if (!res.success) throw new Error(res.message || 'Sıfırlanamadı');
+      setActivity([]);
+      setToast({ message: 'Ofis akışı sıfırlandı.' });
+    } catch (e) {
+      setToast({ message: `Akış sıfırlanamadı${e instanceof Error && e.message ? ': ' + e.message : ''}.` });
+    }
+  }, []);
+
   const saveFollowUp = useCallback(
     (r: CustomerRequest, f: RequestFollowUp) => {
       setRequests((prev) => prev.map((x) => (x.id === r.id ? { ...x, ...f } : x)));
@@ -498,6 +511,7 @@ export default function App() {
           onCreateRequest={createRequest}
           onCloseRequest={finishRequest}
           onFollowUp={saveFollowUp}
+          onClearFeed={isAdmin(currentUser) ? clearFeed : undefined}
           onListingSaved={handleListingSaved}
           notify={(message) => setToast({ message })}
         />

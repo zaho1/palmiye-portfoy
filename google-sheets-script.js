@@ -770,6 +770,14 @@ function doPost(e) {
     var who = g.who;
     var sh, map, row;
 
+    // Ofis akışını sıfırla (sadece yönetici): uygulamada görünen "son hareketler" boşalır, Hareketler sayfası olduğu gibi kalır
+    if (data.action === 'clearFeed') {
+      if (!g.advisor || ADMIN_EMAILS.indexOf(g.advisor.email) === -1) return json_({ success: false, message: 'Yetkisiz' });
+      log_(who, 'Akış sıfırlandı', '', '');
+      PropertiesService.getScriptProperties().setProperty('FEED_CLEARED_AT', now_());
+      return json_({ success: true });
+    }
+
     // Geri bildirim: "Geri Bildirimler" sayfasına yeni satır (kim, ne zaman, ne yazdı)
     if (data.action === 'feedback') {
       var msg = String(data.message || '').trim().slice(0, 2000);
@@ -1041,7 +1049,13 @@ function doGet(e) {
       var canSeeClosed = !!g.advisor && ADMIN_EMAILS.indexOf(g.advisor.email) !== -1;
       return json_({ success: true, rows: readSheet_('Talepler').filter(function (r) { return canSeeClosed || String(r['Durum'] || '').trim() !== 'Kapandı'; }) });
     }
-    if (p.action === 'log') return json_({ success: true, rows: readSheet_('Hareketler').reverse().slice(0, 200) });
+    if (p.action === 'log') {
+      // Yönetici "akışı sıfırla" dediyse o andan önceki hareketler uygulamada görünmez (Sheet'teki kayıt silinmez)
+      var cutoff = PropertiesService.getScriptProperties().getProperty('FEED_CLEARED_AT') || '';
+      var logRows = readSheet_('Hareketler');
+      if (cutoff) logRows = logRows.filter(function (r) { return String(r['Tarih'] || '').slice(0, 16) > cutoff; });
+      return json_({ success: true, rows: logRows.reverse().slice(0, 200) });
+    }
     // Yönetici: pasif dahil tüm hesaplar (aktif/pasif düğmesi için)
     if (p.action === 'advisorsAll') {
       if (!g.advisor || ADMIN_EMAILS.indexOf(g.advisor.email) === -1) return json_({ success: false, message: 'Yetkisiz' });

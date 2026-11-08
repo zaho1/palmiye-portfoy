@@ -260,7 +260,10 @@ export const serverActivate = (email: string, invite: string, password: string) 
 export const changePassword = (password: string, newPassword: string) =>
   postRead<{ success: boolean; message?: string }>({ action: 'changePassword', password, newPassword });
 
-export type FeedbackKind = 'Öneri' | 'Hata' | 'İstek';
+// Yönetici: ofis akışını sıfırlar (Sheet'teki Hareketler kaydı silinmez)
+export const clearActivityFeed = () => postRead<{ success: boolean; message?: string }>({ action: 'clearFeed' });
+
+export type FeedbackKind ='Öneri' | 'Hata' | 'İstek';
 export const sendFeedback = (kind: FeedbackKind, message: string) =>
   postRead<{ success: boolean; message?: string }>({
     action: 'feedback',
