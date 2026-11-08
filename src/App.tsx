@@ -4,6 +4,7 @@ import type { ActivityEntry, CustomerRequest, ListingStatus, Property } from './
 import {
   addNote,
   addRequest,
+  cacheInfo,
   closeRequest,
   deleteNote,
   fetchActivity,
@@ -25,8 +26,10 @@ import {
 import { cleanActivity, forgetPatch, mergeProperties, rememberAdd, rememberDeletedNote, rememberPatch } from './lib/pending';
 import { matchesFor } from './lib/match';
 import { OFFICE_AUTH_CONFIG } from './config/auth';
+import { parseHash, type Route } from './lib/route';
+import { clearOfflineData, isMobileViewport, useIsMobile } from './lib/pwa';
 import Login from './components/Login';
-import ListingList, { type ListPreset } from './components/ListingList';
+import ListingList from './components/ListingList';
 import ListingDetail, { type DetailActions } from './components/ListingDetail';
 import AddListing from './components/AddListing';
 import Requests from './components/Requests';
@@ -36,40 +39,8 @@ import Brochure from './components/Brochure';
 import Sidebar, { type SyncState } from './components/Sidebar';
 import Notifications from './components/Notifications';
 import Toast, { type ToastState } from './components/Toast';
-
-type Route =
-  | { name: 'list'; preset: ListPreset }
-  | { name: 'mine' }
-  | { name: 'favorites' }
-  | { name: 'new' }
-  | { name: 'requests' }
-  | { name: 'map' }
-  | { name: 'settings' }
-  | { name: 'detail'; id: string }
-  | { name: 'brochure'; id: string };
-
-// Hash yönlendirme: tarayıcının geri tuşu çalışır, linkler paylaşılabilir.
-// Liste filtreleri: #/?bolge=Altınova, #/?filtre=teyitsiz|yeni|eksik|indirim
-function parseHash(hash: string): Route {
-  const h = hash.replace(/^#\/?/, '');
-  if (h.startsWith('ilan/')) return { name: 'detail', id: decodeURIComponent(h.slice(5)) };
-  if (h.startsWith('brosur/')) return { name: 'brochure', id: decodeURIComponent(h.slice(7)) };
-  if (h === 'yeni') return { name: 'new' };
-  if (h === 'benim') return { name: 'mine' };
-  if (h === 'favoriler') return { name: 'favorites' };
-  if (h === 'talepler') return { name: 'requests' };
-  if (h === 'harita') return { name: 'map' };
-  if (h === 'ayarlar') return { name: 'settings' };
-  const q = new URLSearchParams(h.startsWith('?') ? h.slice(1) : '');
-  const quick = q.get('filtre');
-  return {
-    name: 'list',
-    preset: {
-      region: q.get('bolge') ?? undefined,
-      quick: quick === 'teyitsiz' || quick === 'yeni' || quick === 'eksik' || quick === 'indirim' ? quick : undefined,
-    },
-  };
-}
+import OfflineBanner from './components/OfflineBanner';
+import MobileApp from './components/mobile/MobileApp';
 
 // Yeni eklenen ilan Sheets'ten dönmeden listede hemen görünsün diye geçici kayıt
 function listingToProperty(l: NewListing, fallbackAgent: string): Property {
@@ -136,7 +107,14 @@ export default function App() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [agentSearch, setAgentSearch] = useState('');
   const [toast, setToast] = useState<ToastState | null>(null);
-  const route = useMemo(() => parseHash(hash), [hash]);
+  const [staleAt, setStaleAt] = useState<number | null>(null);
+  const isMobile = useIsMobile();
+  const rawRoute = useMemo(() => parseHash(hash), [hash]);
+  // #/talep/yeni ve #/ben yalnızca telefon ekranlarıdır; masaüstünde karşılığı olan sayfaya düşer
+  const route = useMemo<Route>(
+    () => (isMobile ? rawRoute : rawRoute.name === 'newRequest' ? { name: 'requests' } : rawRoute.name === 'me' ? { name: 'settings' } : rawRoute),
+    [isMobile, rawRoute],
+  );
 
   const userName = useMemo(
     () => OFFICE_AUTH_CONFIG.allowedUsers.find((u) => u.email === currentUser)?.name ?? currentUser ?? '',
@@ -151,7 +129,8 @@ export default function App() {
     const onHash = () => {
       setHash(window.location.hash);
       setMenuOpen(false);
-      window.scrollTo(0, 0);
+      // Telefon kabuğu kaydırmayı kendisi yönetir (listeye dönünce kaldığı yerden açılır)
+      if (!isMobileViewport()) window.scrollTo(0, 0);
     };
     window.addEventListener('hashchange', onHash);
     return () => window.removeEventListener('hashchange', onHash);
@@ -165,6 +144,7 @@ export default function App() {
         setProperties(mergeProperties(rows));
         setLoadedAt(new Date());
         setLoadError(false);
+        setStaleAt(cacheInfo.listingsAt);
       })
       .catch((err) => {
         console.error('Google Sheets yüklenirken hata oluştu:', err);
@@ -226,6 +206,7 @@ export default function App() {
       localStorage.removeItem(k);
       sessionStorage.removeItem(k);
     });
+    clearOfflineData();
     setCurrentUser(null);
     setOfficeKey('');
     window.location.hash = '';
@@ -374,6 +355,20 @@ export default function App() {
     [write],
   );
 
+  // Yeni ilan Sheets'e gönderildikten sonra: listede hemen görünsün, cihazda "bekleyen" olarak tutulsun
+  const handleListingSaved = useCallback(
+    (l: NewListing) => {
+      const local = listingToProperty(l, userName);
+      rememberAdd(local);
+      setProperties((prev) => [...prev.filter((x) => x.title.trim() !== local.title.trim()), local]);
+      logLocal('İlan eklendi', local.title, String(local.price));
+      window.location.hash = '#/';
+      setToast({ message: 'İlan eklendi.' });
+      window.setTimeout(fetchAll, 4000);
+    },
+    [userName, logLocal, fetchAll],
+  );
+
   const matchedRequestCount = useMemo(
     () => requests.filter((r) => r.status === 'Açık' && matchesFor(r, properties).length > 0).length,
     [requests, properties],
@@ -384,6 +379,38 @@ export default function App() {
   }
 
   const sync: SyncState = { loading, error: loadError, v2Ready, loadedAt };
+
+  if (isMobile) {
+    return (
+      <>
+        <MobileApp
+          route={route}
+          hash={hash}
+          properties={properties}
+          requests={requests}
+          activity={activity}
+          loading={loading}
+          loadError={loadError}
+          v2Ready={v2Ready}
+          sync={sync}
+          staleAt={staleAt}
+          userName={userName}
+          currentUser={currentUser}
+          officeKey={officeKey}
+          presentMode={presentMode}
+          onTogglePresent={() => setPresentMode((v) => !v)}
+          actions={actions}
+          onRefresh={load}
+          onLogout={handleLogout}
+          onCreateRequest={createRequest}
+          onCloseRequest={finishRequest}
+          onListingSaved={handleListingSaved}
+          notify={(message) => setToast({ message })}
+        />
+        {toast && <Toast toast={toast} onClose={() => setToast(null)} />}
+      </>
+    );
+  }
   const isList = route.name === 'list' || route.name === 'mine' || route.name === 'favorites';
   const objectId = route.name === 'detail' || route.name === 'brochure' ? route.id : null;
   const selected = objectId ? properties.find((p) => p.id === objectId) : undefined;
@@ -474,6 +501,7 @@ export default function App() {
         {isList && <div className="no-print sm:hidden px-4 pt-4">{searchInput('search-m', '')}</div>}
 
         <main className="px-4 lg:px-[29px] pt-6 pb-16 print:p-0">
+          <OfflineBanner staleAt={staleAt} />
           {!v2Ready && route.name === 'requests' && (
             <p className="mb-6 rounded-lg bg-warning-bg px-4 py-3 text-sm text-warning">
               Talepler, hareket geçmişi ve ofis içi bilgiler, ofis yöneticisi Google Sheets'teki Apps Script'in yeni sürümünü yayınlayınca açılır. İlanlar normal çalışıyor.
@@ -484,15 +512,7 @@ export default function App() {
             <AddListing
               properties={properties}
               defaultAgentName={userName}
-              onSaved={(l: NewListing) => {
-                const local = listingToProperty(l, userName);
-                rememberAdd(local);
-                setProperties((prev) => [...prev.filter((x) => x.title.trim() !== local.title.trim()), local]);
-                logLocal('İlan eklendi', local.title, String(local.price));
-                window.location.hash = '#/';
-                setToast({ message: 'İlan eklendi.' });
-                window.setTimeout(fetchAll, 4000);
-              }}
+              onSaved={handleListingSaved}
             />
           ) : route.name === 'requests' ? (
             <Requests requests={requests} properties={properties} defaultAgentName={userName} ready={v2Ready} onCreate={createRequest} onClose={finishRequest} />
