@@ -287,7 +287,7 @@ export default function MobileListings({ properties, requests, scope, preset, us
 
   return (
     <div className={selecting ? 'pb-24' : ''}>
-      <header className="m-top px-4 pt-4 flex items-center gap-2">
+      <header className="m-top px-4 pt-4 pb-3 flex items-center gap-1">
         <h1 className="text-2xl font-semibold flex-1 min-w-0 truncate">{title}</h1>
         {scope === 'all' && (
           <a href="#/harita" aria-label="Haritada göster" className="w-11 h-11 rounded-full flex items-center justify-center text-muted active:bg-surface">
