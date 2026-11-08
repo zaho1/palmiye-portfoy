@@ -28,6 +28,7 @@ import { matchesFor } from './lib/match';
 import { OFFICE_AUTH_CONFIG } from './config/auth';
 import { parseHash, type Route } from './lib/route';
 import { clearOfflineData, isMobileViewport, useIsMobile } from './lib/pwa';
+import { clearPersonal } from './lib/personal';
 import Login from './components/Login';
 import ListingList from './components/ListingList';
 import ListingDetail, { type DetailActions } from './components/ListingDetail';
@@ -112,7 +113,16 @@ export default function App() {
   const rawRoute = useMemo(() => parseHash(hash), [hash]);
   // #/talep/yeni ve #/ben yalnızca telefon ekranlarıdır; masaüstünde karşılığı olan sayfaya düşer
   const route = useMemo<Route>(
-    () => (isMobile ? rawRoute : rawRoute.name === 'newRequest' ? { name: 'requests' } : rawRoute.name === 'me' ? { name: 'settings' } : rawRoute),
+    () =>
+      isMobile
+        ? rawRoute
+        : rawRoute.name === 'newRequest'
+          ? { name: 'requests' }
+          : rawRoute.name === 'me'
+            ? { name: 'settings' }
+            : rawRoute.name === 'today'
+              ? { name: 'list', preset: {} }
+              : rawRoute,
     [isMobile, rawRoute],
   );
 
@@ -123,6 +133,14 @@ export default function App() {
 
   useEffect(() => {
     setApiUser(currentUser ?? '');
+  }, [currentUser]);
+
+  // Telefonda uygulama ilk açıldığında (adres boşken) Bugün ekranı gelir
+  useEffect(() => {
+    if (currentUser && isMobileViewport() && (window.location.hash === '' || window.location.hash === '#')) {
+      window.history.replaceState(null, '', '#/bugun');
+      setHash('#/bugun');
+    }
   }, [currentUser]);
 
   useEffect(() => {
@@ -207,6 +225,7 @@ export default function App() {
       sessionStorage.removeItem(k);
     });
     clearOfflineData();
+    clearPersonal();
     setCurrentUser(null);
     setOfficeKey('');
     window.location.hash = '';

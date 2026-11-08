@@ -102,3 +102,36 @@ export const SmartphoneIcon = ({ className }: P) => (
     <path d="M12 18h.01" />
   </Svg>
 );
+
+export const NavigationIcon = ({ className }: P) => (
+  <Svg className={className}>
+    <polygon points="3 11 22 2 13 21 11 13 3 11" />
+  </Svg>
+);
+
+export const CalendarCheckIcon = ({ className }: P) => (
+  <Svg className={className}>
+    <rect x="3" y="4" width="18" height="18" rx="2" />
+    <path d="M16 2v4M8 2v4M3 10h18" />
+    <path d="m9 16 2 2 4-4" />
+  </Svg>
+);
+
+export const ClockIcon = ({ className }: P) => (
+  <Svg className={className}>
+    <circle cx="12" cy="12" r="10" />
+    <path d="M12 6v6l4 2" />
+  </Svg>
+);
+
+export const BookmarkIcon = ({ className }: P) => (
+  <Svg className={className}>
+    <path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
+  </Svg>
+);
+
+export const CheckIcon = ({ className }: P) => (
+  <Svg className={className}>
+    <path d="M20 6 9 17l-5-5" />
+  </Svg>
+);

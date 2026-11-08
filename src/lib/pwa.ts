@@ -11,6 +11,7 @@ type NavigatorWithStandalone = Navigator & { standalone?: boolean };
 
 let deferred: InstallPromptEvent | null = null;
 let installed = false;
+let updateReady = false;
 const listeners = new Set<() => void>();
 const emit = () => listeners.forEach((l) => l());
 
@@ -48,8 +49,23 @@ export function initPwa() {
 
   // Geliştirme sunucusunda önbellek kafa karıştırır; yalnızca yayın sürümünde
   if (import.meta.env.PROD && 'serviceWorker' in navigator) {
+    // Sayfa açıkken yeni sürümün servis çalışanı devreye girerse "Yeni sürüm hazır" uyarısı çıkar
+    const hadController = !!navigator.serviceWorker.controller;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (!hadController) return;
+      updateReady = true;
+      emit();
+    });
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('/sw.js').catch((err) => console.warn('Servis çalışanı kaydedilemedi:', err));
+      navigator.serviceWorker
+        .register('/sw.js')
+        .then((reg) => {
+          // Uygulama arka plandan dönünce ve yarım saatte bir yeni sürüm var mı diye bakılır
+          const check = () => reg.update().catch(() => undefined);
+          document.addEventListener('visibilitychange', () => document.visibilityState === 'visible' && check());
+          window.setInterval(check, 30 * 60_000);
+        })
+        .catch((err) => console.warn('Servis çalışanı kaydedilemedi:', err));
     });
   }
 }
@@ -61,6 +77,10 @@ const subscribe = (cb: () => void) => {
   };
 };
 const installSnapshot = () => `${deferred ? 1 : 0}${installed ? 1 : 0}`;
+
+export function useUpdateReady(): boolean {
+  return useSyncExternalStore(subscribe, () => updateReady);
+}
 
 export function useInstall() {
   useSyncExternalStore(subscribe, installSnapshot);

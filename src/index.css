@@ -267,3 +267,10 @@ body {
     display: none !important;
   }
 }
+
+/* Telefon: aşağı çekerek yenileme uygulamanın kendi hareketiyle yapılır (tarayıcınınki devre dışı) */
+@media (max-width: 1023px) {
+  html {
+    overscroll-behavior-y: contain;
+  }
+}
