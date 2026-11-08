@@ -24,14 +24,22 @@ export default async function handler(req, res) {
   const gone = [];
   let sent = 0;
   let failed = 0;
+  const problems = [];
   for (let i = 0; i < messages.length; i += 20) {
     const batch = await Promise.allSettled(messages.slice(i, i + 20).map((m) => sendPush(m, vapid)));
     for (const r of batch) {
-      if (r.status === 'rejected') failed++;
-      else if (r.value.gone) gone.push(r.value.endpoint);
-      else if (r.value.status >= 200 && r.value.status < 300) sent++;
-      else failed++;
+      if (r.status === 'rejected') {
+        failed++;
+        problems.push(String(r.reason && r.reason.message ? r.reason.message : r.reason).slice(0, 160));
+      } else if (r.value.gone) {
+        gone.push(r.value.endpoint);
+        problems.push(`gone ${r.value.status}`);
+      } else if (r.value.status >= 200 && r.value.status < 300) sent++;
+      else {
+        failed++;
+        problems.push(`${r.value.status} ${r.value.detail || ''}`.trim());
+      }
     }
   }
-  return res.status(200).json({ sent, failed, gone });
+  return res.status(200).json({ sent, failed, gone, problems: problems.slice(0, 5) });
 }

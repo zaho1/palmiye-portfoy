@@ -362,6 +362,7 @@ function sendPush_(emails, news, msg, exclude) {
     });
     var out = JSON.parse(res.getContentText());
     (out.gone || []).forEach(removeSub_);
+    if (out.failed || (out.gone && out.gone.length) || out.error) log_('sistem', 'Bildirim gönderilemedi', '', String(res.getResponseCode() + ' ' + (out.error || JSON.stringify(out.problems || []))).slice(0, 200));
   } catch (e) {
     log_('sistem', 'Bildirim hatası', '', String(e).slice(0, 200));
   }

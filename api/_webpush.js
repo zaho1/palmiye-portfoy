@@ -71,5 +71,6 @@ export async function sendPush({ endpoint, p256dh, auth, payload }, vapid) {
     },
     body: encryptPayload(JSON.stringify(payload), p256dh, auth),
   });
-  return { endpoint, status: res.status, gone: res.status === 404 || res.status === 410 };
+  const detail = res.ok ? '' : (await res.text().catch(() => '')).slice(0, 160);
+  return { endpoint, status: res.status, gone: res.status === 404 || res.status === 410, detail };
 }
