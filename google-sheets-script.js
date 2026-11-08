@@ -1352,3 +1352,38 @@ function siteIlanlariniAktar() {
   var r = siteImport_(false);
   Logger.log('Sitede ' + r.found + ' ilan, eklendi ' + r.added.length + ', zaten vardı ' + r.skipped);
 }
+
+// ---------- Haftalık yedek ----------
+// Tüm Sheet'in (sayfalar + bu script) kopyasını Drive'daki "Palmiye Yedekleri" klasörüne alır.
+// Son BACKUP_KEEP yedek tutulur, eskileri Drive çöp kutusuna gider (30 gün orada kurtarılabilir).
+var BACKUP_FOLDER = 'Palmiye Yedekleri';
+var BACKUP_KEEP = 12;
+
+function yedekAl() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var folders = DriveApp.getFoldersByName(BACKUP_FOLDER);
+  var folder = folders.hasNext() ? folders.next() : DriveApp.createFolder(BACKUP_FOLDER);
+  var name = 'Palmiye Yedek ' + Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd HH:mm');
+  DriveApp.getFileById(ss.getId()).makeCopy(name, folder);
+
+  var files = folder.getFiles();
+  var list = [];
+  while (files.hasNext()) {
+    var f = files.next();
+    if (f.getName().indexOf('Palmiye Yedek ') === 0) list.push(f);
+  }
+  list.sort(function (a, b) { return b.getDateCreated() - a.getDateCreated(); });
+  for (var i = BACKUP_KEEP; i < list.length; i++) list[i].setTrashed(true);
+
+  log_('sistem', 'Yedek alındı', '', name);
+  return name;
+}
+
+// Bir kez çalıştırılır: her pazar sabahı 03:xx'te yedekAl'ı çalıştıran zamanlayıcıyı kurar ve ilk yedeği hemen alır.
+function haftalikYedekKur() {
+  ScriptApp.getProjectTriggers().forEach(function (t) {
+    if (t.getHandlerFunction() === 'yedekAl') ScriptApp.deleteTrigger(t);
+  });
+  ScriptApp.newTrigger('yedekAl').timeBased().onWeekDay(ScriptApp.WeekDay.SUNDAY).atHour(3).create();
+  return yedekAl();
+}
