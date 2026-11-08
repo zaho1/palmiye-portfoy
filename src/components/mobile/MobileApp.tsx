@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { ActivityEntry, CustomerRequest, Property } from '../../types';
-import type { NewListing, NewRequest } from '../../lib/sheets';
+import type { NewListing, NewRequest, RequestFollowUp } from '../../lib/sheets';
 import { matchesFor } from '../../lib/match';
 import { parseHash, type Route } from '../../lib/route';
 import ListingDetail, { type DetailActions } from '../ListingDetail';
@@ -9,6 +9,8 @@ import Maps from '../Maps';
 import Settings from '../Settings';
 import Brochure from '../Brochure';
 import OfflineBanner from '../OfflineBanner';
+import { useUpdateReady } from '../../lib/pwa';
+import { rememberView, seenMatchesStore, useStore } from '../../lib/personal';
 import type { SyncState } from '../Sidebar';
 import BottomNav, { type NavTab } from './BottomNav';
 import AddSheet from './AddSheet';
@@ -17,6 +19,8 @@ import MobileRequests from './MobileRequests';
 import MobileNewRequest from './MobileNewRequest';
 import MobileNewListing from './MobileNewListing';
 import MobileMe from './MobileMe';
+import MobileToday from './MobileToday';
+import PullToRefresh from './PullToRefresh';
 import { ChevronLeftIcon } from './icons';
 
 export interface MobileAppProps {
@@ -40,6 +44,7 @@ export interface MobileAppProps {
   onLogout: () => void;
   onCreateRequest: (r: NewRequest) => void;
   onCloseRequest: (r: CustomerRequest) => void;
+  onFollowUp: (r: CustomerRequest, f: RequestFollowUp) => void;
   onListingSaved: (l: NewListing) => void;
   notify: (message: string) => void;
 }
@@ -74,7 +79,10 @@ export default function MobileApp(p: MobileAppProps) {
   // İlanlar ekranı süzgeçleri ve kaydırması, ilan açılıp kapanınca bozulmasın diye hep açık tutulur (gizlenir).
   // Yalnızca adresteki süzgeç değişince (#/?filtre=…) sıfırlanır.
   const [lastPreset, setLastPreset] = useState<ListPreset>({});
-  if (route.name === 'list' && (route.preset.region !== lastPreset.region || route.preset.quick !== lastPreset.quick)) {
+  if (
+    route.name === 'list' &&
+    (route.preset.region !== lastPreset.region || route.preset.quick !== lastPreset.quick || route.preset.nearby !== lastPreset.nearby || route.preset.saved !== lastPreset.saved)
+  ) {
     setLastPreset(route.preset);
   }
 
@@ -94,15 +102,53 @@ export default function MobileApp(p: MobileAppProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hash]);
 
+  // Son baktığım ilanlar
+  const viewedId = route.name === 'detail' ? route.id : null;
+  useEffect(() => {
+    if (viewedId) rememberView(viewedId);
+  }, [viewedId]);
+
+  // Talebe uyan ilanlardan hangileri görüldü: ilk görüşte mevcut olanlar "görülmüş" sayılır (gürültü olmasın),
+  // sonradan uyanlar "yeni" olur; Talepler ekranı açılınca hepsi görülmüş olur.
+  const seen = useStore(seenMatchesStore);
+  const onRequests = route.name === 'requests';
+  useEffect(() => {
+    if (!p.properties.length || !p.v2Ready) return;
+    const next = { ...seen };
+    let changed = false;
+    for (const r of p.requests) {
+      if (r.status !== 'Açık') continue;
+      if (next[r.id] && !onRequests) continue;
+      const ids = matchesFor(r, p.properties).map((x) => x.id);
+      if (!next[r.id] || next[r.id].length !== ids.length || ids.some((id) => !next[r.id].includes(id))) {
+        next[r.id] = ids;
+        changed = true;
+      }
+    }
+    if (changed) seenMatchesStore.set(next);
+  }, [p.requests, p.properties, p.v2Ready, seen, onRequests]);
+
+  const mineKey = p.userName.toLocaleLowerCase('tr');
+  const freshMatches = useMemo(() => {
+    let n = 0;
+    for (const r of p.requests) {
+      if (r.status !== 'Açık' || !mineKey || !r.agentName.toLocaleLowerCase('tr').includes(mineKey) || !seen[r.id]) continue;
+      n += matchesFor(r, p.properties).filter((x) => !seen[r.id].includes(x.id)).length;
+    }
+    return n;
+  }, [p.requests, p.properties, seen, mineKey]);
+
+  const updateReady = useUpdateReady();
+
   const matchedRequests = useMemo(
     () => p.requests.filter((r) => r.status === 'Açık' && matchesFor(r, p.properties).length > 0).length,
     [p.requests, p.properties],
   );
 
   const active: NavTab =
-    route.name === 'list' || route.name === 'detail' ? 'list'
+    route.name === 'today' ? 'today'
+    : route.name === 'list' || route.name === 'detail' || route.name === 'map' ? 'list'
     : route.name === 'requests' || route.name === 'newRequest' ? 'requests'
-    : route.name === 'map' ? 'map'
     : route.name === 'me' || route.name === 'mine' || route.name === 'favorites' || route.name === 'settings' ? 'me'
     : null;
   const hideNav = route.name === 'new' || route.name === 'newRequest' || route.name === 'brochure';
@@ -116,6 +162,17 @@ export default function MobileApp(p: MobileAppProps) {
     </div>
   );
 
+  const updateBanner = updateReady && (
+    <div className="px-4 pt-3">
+      <div role="status" className="rounded-xl bg-positive-bg text-positive px-4 py-3 text-sm flex items-center gap-3">
+        <p className="flex-1">Uygulamanın yeni sürümü hazır.</p>
+        <button onClick={() => window.location.reload()} className="h-10 px-4 rounded-full bg-positive text-ground font-semibold shrink-0">
+          Yenile
+        </button>
+      </div>
+    </div>
+  );
+
   const offline = (
     <div className="px-4 pt-3 empty:hidden">
       <OfflineBanner staleAt={p.staleAt} />
@@ -124,11 +181,17 @@ export default function MobileApp(p: MobileAppProps) {
 
   return (
     <div className={`min-h-dvh bg-ground ${hideNav ? '' : 'm-page'}`}>
+      {updateBanner}
       {offline}
+      <PullToRefresh onRefresh={p.onRefresh} busy={p.loading} />
+
+      {route.name === 'today' && (
+        <MobileToday properties={p.properties} requests={p.requests} activity={p.activity} userName={p.userName} loading={p.loading} actions={p.actions} onRefresh={p.onRefresh} onFollowUp={p.onFollowUp} />
+      )}
 
       <div className={route.name === 'list' ? '' : 'hidden'}>
         <MobileListings
-          key={`${lastPreset.region ?? ''}|${lastPreset.quick ?? ''}`}
+          key={`${lastPreset.region ?? ''}|${lastPreset.quick ?? ''}|${lastPreset.nearby ? 'y' : ''}|${lastPreset.saved ?? ''}`}
           properties={p.properties}
           requests={p.requests}
           scope="all"
@@ -143,7 +206,7 @@ export default function MobileApp(p: MobileAppProps) {
       </div>
 
       <div className={route.name === 'requests' ? '' : 'hidden'}>
-        <MobileRequests requests={p.requests} properties={p.properties} userName={p.userName} ready={p.v2Ready} onClose={p.onCloseRequest} />
+        <MobileRequests requests={p.requests} properties={p.properties} userName={p.userName} ready={p.v2Ready} onClose={p.onCloseRequest} onFollowUp={p.onFollowUp} />
       </div>
 
       {route.name === 'mine' && (
@@ -232,7 +295,7 @@ export default function MobileApp(p: MobileAppProps) {
         </>
       )}
 
-      {!hideNav && <BottomNav active={active} requestBadge={matchedRequests} onAdd={() => setAddOpen(true)} />}
+      {!hideNav && <BottomNav active={active} requestBadge={matchedRequests} todayBadge={freshMatches} onAdd={() => setAddOpen(true)} />}
       {addOpen && <AddSheet onClose={() => setAddOpen(false)} />}
     </div>
   );

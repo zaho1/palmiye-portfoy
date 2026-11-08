@@ -1,11 +1,13 @@
 import { useMemo, useState } from 'react';
 import { UserPlus } from 'lucide-react';
 import type { CustomerRequest, Property } from '../../types';
-import { formatPrice, relativeDay } from '../../lib/sheets';
+import { formatPrice, relativeDay, type RequestFollowUp } from '../../lib/sheets';
+import { TONE_CLASS, callLabel, isDue } from '../../lib/followup';
 import { matchesFor } from '../../lib/match';
 import { Thumb } from '../ui';
 import { Segmented, Sheet, btnBig, btnBigSecondary } from './controls';
 import { ChevronRightIcon } from './icons';
+import FollowUpSheet from './FollowUpSheet';
 
 interface Props {
   requests: CustomerRequest[];
@@ -13,14 +15,16 @@ interface Props {
   userName: string;
   ready: boolean;
   onClose: (r: CustomerRequest) => void;
+  onFollowUp: (r: CustomerRequest, f: RequestFollowUp) => void;
 }
 
 const title = (r: CustomerRequest) => `${[r.deal, r.kind, r.rooms].filter(Boolean).join(' ')}${r.region ? `, ${r.region}` : ''}`;
 
-export default function MobileRequests({ requests, properties, userName, ready, onClose }: Props) {
+export default function MobileRequests({ requests, properties, userName, ready, onClose, onFollowUp }: Props) {
   const [who, setWho] = useState('Hepsi');
   const [showClosed, setShowClosed] = useState(false);
   const [closing, setClosing] = useState<CustomerRequest | null>(null);
+  const [following, setFollowing] = useState<CustomerRequest | null>(null);
   const mineKey = userName.toLocaleLowerCase('tr');
 
   const scoped = useMemo(
@@ -33,7 +37,8 @@ export default function MobileRequests({ requests, properties, userName, ready, 
       scoped
         .filter((r) => r.status === 'Açık')
         .map((r) => ({ r, matches: matchesFor(r, properties) }))
-        .sort((a, b) => b.matches.length - a.matches.length),
+        // Önce aranması gelenler, sonra uyan ilanı çok olanlar
+        .sort((a, b) => Number(isDue(b.r.nextCall)) - Number(isDue(a.r.nextCall)) || b.matches.length - a.matches.length),
     [scoped, properties],
   );
   const closed = scoped.filter((r) => r.status === 'Kapandı');
@@ -67,13 +72,22 @@ export default function MobileRequests({ requests, properties, userName, ready, 
             Açık müşteri talebi yok. Sağ üstteki "Yeni talep" ile ilkini girin.
           </div>
         ) : (
-          open.map(({ r, matches }) => (
+          open.map(({ r, matches }) => {
+            const call = callLabel(r.nextCall);
+            return (
             <article key={r.id} className="bg-surface rounded-2xl p-4">
+              {r.customer && <p className="text-[14px] text-muted">{r.customer}</p>}
               <h2 className="text-[17px] font-semibold leading-6">{title(r) || 'Talep'}</h2>
               <p className="mt-1 text-[15px] text-muted num">
                 {[r.maxPrice ? `En çok ${formatPrice(r.maxPrice)}` : '', r.minSize ? `en az ${r.minSize} m²` : '', r.note].filter(Boolean).join(' · ') || 'Ek ölçüt yok'}
               </p>
               <p className="mt-1 text-[13px] text-faint">{r.agentName} · {relativeDay(r.createdAt)}</p>
+              {(call || r.contactNote) && (
+                <p className="mt-2 text-[14px] leading-5 flex flex-wrap items-center gap-x-2 gap-y-1">
+                  {call && <span className={`h-6 px-2.5 rounded-full text-[13px] font-medium inline-flex items-center ${TONE_CLASS[call.tone]}`}>{call.text}</span>}
+                  {r.contactNote && <span className="text-muted min-w-0">“{r.contactNote}”{r.lastContact ? ` · ${r.lastContact}` : ''}</span>}
+                </p>
+              )}
 
               <p className={`mt-3 inline-flex h-7 px-3 rounded-full text-[14px] font-medium items-center num ${matches.length ? 'bg-positive-bg text-positive' : 'bg-raised text-muted'}`}>
                 {matches.length ? `${matches.length} ilan uyuyor` : 'Şu an uyan ilan yok'}
@@ -97,11 +111,13 @@ export default function MobileRequests({ requests, properties, userName, ready, 
               )}
               {matches.length > 12 && <p className="mt-2 text-[13px] text-faint">ve {matches.length - 12} ilan daha</p>}
 
-              <div className="mt-3 pt-1 border-t border-rule -mb-2">
-                <button onClick={() => setClosing(r)} className="min-h-11 pr-2 text-[15px] text-muted underline underline-offset-2">Talebi kapat</button>
+              <div className="mt-3 pt-1 border-t border-rule -mb-2 flex items-center gap-4">
+                <button onClick={() => setFollowing(r)} className="min-h-11 text-[15px] font-medium">Görüşme yaz</button>
+                <button onClick={() => setClosing(r)} className="min-h-11 text-[15px] text-muted underline underline-offset-2">Talebi kapat</button>
               </div>
             </article>
-          ))
+            );
+          })
         )}
 
         {closed.length > 0 && (
@@ -119,6 +135,8 @@ export default function MobileRequests({ requests, properties, userName, ready, 
           </div>
         )}
       </div>
+
+      {following && <FollowUpSheet request={following} onSave={(f) => onFollowUp(following, f)} onClose={() => setFollowing(null)} />}
 
       {closing && (
         <Sheet

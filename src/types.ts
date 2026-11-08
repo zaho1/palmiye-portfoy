@@ -55,6 +55,11 @@ export interface CustomerRequest {
   maxPrice: number;
   minSize: number;
   note: string;
+  customer?: string;
+  // Müşteri takibi (yyyy-MM-dd); boş olabilir
+  nextCall?: string;
+  lastContact?: string;
+  contactNote?: string;
 }
 
 export interface ActivityEntry {

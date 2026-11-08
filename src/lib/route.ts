@@ -1,6 +1,7 @@
 import type { ListPreset } from '../components/ListingList';
 
 export type Route =
+  | { name: 'today' }
   | { name: 'list'; preset: ListPreset }
   | { name: 'mine' }
   | { name: 'favorites' }
@@ -15,7 +16,8 @@ export type Route =
 
 // Hash yönlendirme: tarayıcının geri tuşu çalışır, linkler paylaşılabilir.
 // Liste filtreleri: #/?bolge=Altınova, #/?filtre=teyitsiz|yeni|eksik|indirim
-// #/talep/yeni ve #/ben yalnızca telefon ekranlarıdır; masaüstünde App içinde karşılığına düşer.
+// Telefon: #/?yakin=1 (yakınımdakiler), #/?kf=<id> (kayıtlı filtre)
+// #/bugun, #/talep/yeni ve #/ben yalnızca telefon ekranlarıdır; masaüstünde App içinde karşılığına düşer.
 export function parseHash(hash: string): Route {
   const h = hash.replace(/^#\/?/, '');
   if (h.startsWith('ilan/')) return { name: 'detail', id: decodeURIComponent(h.slice(5)) };
@@ -25,6 +27,7 @@ export function parseHash(hash: string): Route {
   if (h === 'benim') return { name: 'mine' };
   if (h === 'favoriler') return { name: 'favorites' };
   if (h === 'talepler') return { name: 'requests' };
+  if (h === 'bugun') return { name: 'today' };
   if (h === 'harita') return { name: 'map' };
   if (h === 'ben') return { name: 'me' };
   if (h === 'ayarlar') return { name: 'settings' };
@@ -35,6 +38,8 @@ export function parseHash(hash: string): Route {
     preset: {
       region: q.get('bolge') ?? undefined,
       quick: quick === 'teyitsiz' || quick === 'yeni' || quick === 'eksik' || quick === 'indirim' ? quick : undefined,
+      nearby: q.get('yakin') === '1' ? true : undefined,
+      saved: q.get('kf') ?? undefined,
     },
   };
 }

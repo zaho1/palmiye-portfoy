@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { TriangleAlert, X } from 'lucide-react';
 import type { OwnerInfo, Property } from '../../types';
 import {
@@ -12,8 +12,9 @@ import {
   normalizeAdaParsel,
   type NewListing,
 } from '../../lib/sheets';
-import { OFFICE_AUTH_CONFIG } from '../../config/auth';
+import { getDirectory } from '../../lib/people';
 import { useSettings } from '../../lib/settings';
+import { haptic, listingDraftStore } from '../../lib/personal';
 import { Thumb } from '../ui';
 import { OwnerFields } from '../ListingDetail';
 import MapView from '../MapView';
@@ -45,18 +46,25 @@ const grouped = (s: string) => (s ? Number(s).toLocaleString('tr-TR') : '');
 // Yeni ilan: adım adım kısa form. Kameradan çek, bulunduğun yeri işaretle.
 export default function MobileNewListing({ properties, defaultAgentName, onSaved }: Props) {
   const { settings } = useSettings();
-  const [step, setStep] = useState(0);
-  const [images, setImages] = useState<string[]>([]);
+  // Yarım kalan ilan telefonda saklanır; sinyal gitse veya uygulama kapansa kaybolmaz (mal sahibi bilgisi hariç)
+  const [restored] = useState(() => {
+    const d = listingDraftStore.get();
+    return d && Date.now() - d.savedAt < 72 * 3_600_000 ? d : null;
+  });
+  const [showRestored, setShowRestored] = useState(true);
+  const finished = useRef(false);
+  const [step, setStep] = useState(restored?.step ?? 0);
+  const [images, setImages] = useState<string[]>(restored?.images ?? []);
   const [processing, setProcessing] = useState(false);
-  const [features, setFeatures] = useState<string[]>([]);
+  const [features, setFeatures] = useState<string[]>(restored?.features ?? []);
   const [owner, setOwner] = useState<OwnerInfo>(EMPTY_OWNER);
-  const [location, setLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const [location, setLocation] = useState<{ lat: number; lng: number } | null>(restored?.location ?? null);
   const [geoCenter, setGeoCenter] = useState<[number, number] | null>(null);
   const [geoState, setGeoState] = useState<'idle' | 'busy'>('idle');
   const [geoError, setGeoError] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
-  const [form, setForm] = useState<Form>(() => ({
+  const makeForm = (): Form => ({
     title: '',
     price: '',
     deal: 'Satılık',
@@ -67,7 +75,7 @@ export default function MobileNewListing({ properties, defaultAgentName, onSaved
     sahibindenUrl: '',
     adaParsel: '',
     agentName: defaultAgentName,
-    agentPhone: settings.phone || OFFICE_AUTH_CONFIG.allowedUsers.find((u) => u.name === defaultAgentName)?.phone || '',
+    agentPhone: settings.phone || getDirectory().find((u) => u.name === defaultAgentName)?.phone || '',
     whatsappUrl: '',
     region: '',
     neighborhood: '',
@@ -75,7 +83,29 @@ export default function MobileNewListing({ properties, defaultAgentName, onSaved
     floor: '',
     buildingAge: '',
     heating: '',
-  }));
+  });
+  const [form, setForm] = useState<Form>(() => ({ ...makeForm(), ...(restored?.form as Partial<Form> | undefined) }));
+
+  const dirty = images.length > 0 || !!form.title.trim() || !!form.price || !!form.neighborhood.trim() || !!form.region;
+  useEffect(() => {
+    const t = window.setTimeout(() => {
+      if (finished.current) return;
+      if (!dirty) listingDraftStore.clear();
+      else listingDraftStore.set({ savedAt: Date.now(), step, images, features, form: { ...form }, location });
+    }, 700);
+    return () => window.clearTimeout(t);
+  }, [dirty, step, images, features, form, location]);
+
+  const startOver = () => {
+    listingDraftStore.clear();
+    setImages([]);
+    setFeatures([]);
+    setLocation(null);
+    setForm(makeForm());
+    setStep(0);
+    setShowRestored(false);
+    window.scrollTo(0, 0);
+  };
 
   const patch = (change: Partial<Form>) => {
     setError('');
@@ -186,9 +216,9 @@ export default function MobileNewListing({ properties, defaultAgentName, onSaved
     go(step + 1);
   };
 
+  // Çıkınca bilgiler silinmez: taslak olarak kalır, ilan ekle'ye dönünce devam edilir
   const leave = () => {
-    const dirty = images.length > 0 || form.title.trim() || form.price || form.neighborhood.trim();
-    if (!dirty || window.confirm('Vazgeçilsin mi? Girdiğiniz bilgiler silinir.')) window.location.hash = '#/';
+    window.location.hash = '#/bugun';
   };
 
   const submit = async () => {
@@ -214,6 +244,9 @@ export default function MobileNewListing({ properties, defaultAgentName, onSaved
         location: location ? formatLocation(location.lat, location.lng) : '',
       };
       await addListing(listing, owner.name || owner.phone ? owner : null);
+      finished.current = true;
+      listingDraftStore.clear();
+      haptic(20);
       onSaved(listing);
     } catch (err) {
       console.error('İlan eklenirken hata:', err);
@@ -250,6 +283,16 @@ export default function MobileNewListing({ properties, defaultAgentName, onSaved
       </header>
 
       <div className="px-4 pt-5 space-y-6">
+        {restored && showRestored && (
+          <div role="status" className="rounded-xl bg-surface px-4 py-3 text-[14px] flex items-center gap-3">
+            <p className="flex-1 min-w-0 text-muted">
+              Yarım kalan ilanın geri geldi{restored.images.length ? ` (${restored.images.length} fotoğraf)` : ''}.
+            </p>
+            <button type="button" onClick={startOver} className="min-h-11 px-3 -mr-2 text-ink underline underline-offset-2 shrink-0">
+              Baştan başla
+            </button>
+          </div>
+        )}
         {step === 0 && (
           <>
             <p className="text-[15px] text-muted">İlk fotoğraf listede kapak olur. En az 1, en iyisi 5 fotoğraf ekleyin.</p>

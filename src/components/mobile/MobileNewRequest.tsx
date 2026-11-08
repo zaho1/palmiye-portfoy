@@ -1,7 +1,8 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { REGIONS, formatPrice, parseSize, type NewRequest } from '../../lib/sheets';
 import { matchesFor } from '../../lib/match';
 import type { Property } from '../../types';
+import { haptic, requestDraftStore } from '../../lib/personal';
 import { Chip, MField, Segmented, btnBig } from './controls';
 import { ChevronLeftIcon } from './icons';
 
@@ -22,7 +23,8 @@ const grouped = (s: string) => (s ? Number(s).toLocaleString('tr-TR') : '');
 
 // Müşteri talebi: tek ekran, büyük alanlar, sayı alanlarında sayısal klavye
 export default function MobileNewRequest({ properties, defaultAgentName, ready, onCreate, onDone }: Props) {
-  const [form, setForm] = useState<NewRequest>({
+  const makeForm = (): NewRequest => ({
+    customer: '',
     agentName: defaultAgentName,
     deal: 'Satılık',
     kind: '',
@@ -32,6 +34,21 @@ export default function MobileNewRequest({ properties, defaultAgentName, ready, 
     minSize: '',
     note: '',
   });
+  // Yarım kalan talep telefonda saklanır
+  const [restored] = useState(() => {
+    const d = requestDraftStore.get();
+    return d && Date.now() - d.savedAt < 48 * 3_600_000 ? d : null;
+  });
+  const [form, setForm] = useState<NewRequest>(() => ({ ...makeForm(), ...(restored?.form as Partial<NewRequest> | undefined) }));
+  const [showRestored, setShowRestored] = useState(true);
+  const dirty = !!(form.customer || form.kind || form.region || form.rooms || form.maxPrice || form.minSize || form.note.trim());
+  useEffect(() => {
+    const t = window.setTimeout(() => {
+      if (dirty) requestDraftStore.set({ savedAt: Date.now(), form: { ...form } });
+      else requestDraftStore.clear();
+    }, 500);
+    return () => window.clearTimeout(t);
+  }, [dirty, form]);
   const [editAgent, setEditAgent] = useState(false);
   const [error, setError] = useState('');
   const patch = (change: Partial<NewRequest>) => {
@@ -68,6 +85,8 @@ export default function MobileNewRequest({ properties, defaultAgentName, ready, 
       setError('En az bir ölçüt seçin: cins, bölge, bütçe gibi.');
       return;
     }
+    requestDraftStore.clear();
+    haptic(20);
     onCreate({ ...form, rooms: isLand ? '' : form.rooms });
     onDone();
   };
@@ -82,6 +101,26 @@ export default function MobileNewRequest({ properties, defaultAgentName, ready, 
       </header>
 
       <div className="px-4 pt-5 space-y-6">
+        {restored && showRestored && dirty && (
+          <div role="status" className="rounded-xl bg-surface px-4 py-3 text-[14px] flex items-center gap-3">
+            <p className="flex-1 min-w-0 text-muted">Yarım kalan talebin geri geldi.</p>
+            <button
+              type="button"
+              onClick={() => {
+                requestDraftStore.clear();
+                setForm(makeForm());
+                setShowRestored(false);
+              }}
+              className="min-h-11 px-3 -mr-2 text-ink underline underline-offset-2 shrink-0"
+            >
+              Sıfırla
+            </button>
+          </div>
+        )}
+        <MField label="Müşteri (ad veya takma ad)" htmlFor="mr-customer">
+          <input id="mr-customer" autoComplete="off" enterKeyHint="next" placeholder="Örn. Ahmet Bey, Çiftlikköy'lü" value={form.customer ?? ''} onChange={(e) => patch({ customer: e.target.value })} className="field-lg" />
+        </MField>
+
         <MField label="İşlem">
           <Segmented label="Satılık veya kiralık" value={form.deal} options={['Satılık', 'Kiralık']} onChange={(v) => patch({ deal: v })} />
         </MField>
@@ -132,7 +171,7 @@ export default function MobileNewRequest({ properties, defaultAgentName, ready, 
 
         <MField label="Not" htmlFor="mr-note">
           <textarea id="mr-note" rows={3} placeholder="Örn. Okula yakın, bahçeli olsun" value={form.note} onChange={(e) => patch({ note: e.target.value })} className="field-lg py-3 leading-6" />
-          <p className="text-[13px] text-faint mt-1.5">Müşterinin telefonunu buraya yazmayın; talebi siz takip edersiniz.</p>
+          <p className="text-[13px] text-faint mt-1.5">Müşterinin telefon numarasını yazmayın; görüşme notlarını talep kartından eklersiniz.</p>
         </MField>
 
         <div>

@@ -24,6 +24,9 @@ export type Quick = 'teyitsiz' | 'yeni' | 'eksik' | 'indirim';
 export interface ListPreset {
   region?: string;
   quick?: Quick;
+  // Yalnızca telefon: yakınımdakiler ve kayıtlı filtre
+  nearby?: boolean;
+  saved?: string;
 }
 
 interface Props {
