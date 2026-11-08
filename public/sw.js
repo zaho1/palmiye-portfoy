@@ -12,6 +12,8 @@ const KEEP = [SHELL, ASSETS, DATA];
 
 const DATA_ACTIONS = ['listings', 'requests', 'log'];
 const NETWORK_TIMEOUT_MS = 4000;
+// Apps Script bazen 3-6 sn'de cevap verir; iyi bağlantıda "eski veri" uyarısına düşmemek için daha uzun beklenir
+const DATA_TIMEOUT_MS = 9000;
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
@@ -94,8 +96,8 @@ function isDataRequest(url) {
 async function dataStrategy(request) {
   const cache = await caches.open(DATA);
   const key = dataKey(request.url);
-  try {
-    const res = await withTimeout(fetch(request), NETWORK_TIMEOUT_MS);
+  // Ağ cevabı geç gelse bile (zaman aşımından sonra) önbelleğe yazılır; bir sonraki açılış güncel olur
+  const network = fetch(request).then((res) => {
     if (res.ok) {
       // Kaydedildiği an cevabın kendi başlığına yazılır (Cache API anahtardaki # kısmını yok sayar)
       const copy = res.clone();
@@ -107,6 +109,10 @@ async function dataStrategy(request) {
       })().catch(() => undefined);
     }
     return res;
+  });
+  network.catch(() => undefined);
+  try {
+    return await withTimeout(network, DATA_TIMEOUT_MS);
   } catch (err) {
     const hit = await cache.match(key);
     if (!hit) throw err;
