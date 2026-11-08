@@ -162,6 +162,7 @@ function geciciIlanlariSil() {
 // Uygulamadan silinen (Durum = Silindi) ilanların satırlarını İlanlarım sayfasında gizler.
 // Satır silinmez: satır sırasına bağlı ilan ID'leri kaymasın diye. Bir kerelik çalıştırmak yeterli.
 function silinenleriGizle() {
+  geciciIlanlariSil(); // baştaki geçici ilanlar varsa önce onları Silindi yapar
   var sh = listingSheet_();
   var rows = readRows_(sh);
   var n = 0;
