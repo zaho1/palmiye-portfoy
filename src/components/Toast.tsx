@@ -20,7 +20,7 @@ export default function Toast({ toast, onClose }: { toast: ToastState; onClose: 
   return (
     <div
       role="status"
-      className="fixed z-50 bottom-4 left-4 right-4 sm:left-auto sm:right-6 sm:bottom-6 sm:max-w-[420px] bg-raised rounded-xl px-4 py-3 shadow-[0_12px_28px_rgba(0,0,0,.45)] flex items-center gap-4"
+      className="m-toast fixed z-[80] bottom-4 left-4 right-4 sm:left-auto sm:right-6 sm:bottom-6 sm:max-w-[420px] bg-raised rounded-xl px-4 py-3 shadow-[0_12px_28px_rgba(0,0,0,.45)] flex items-center gap-4"
     >
       <p className="text-sm flex-1">{toast.message}</p>
       {toast.undo && (

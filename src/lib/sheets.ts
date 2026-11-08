@@ -152,6 +152,7 @@ function fetchPropertiesCsv(): Promise<Property[]> {
 // Önce Apps Script'ten canlı okunur (önbellek yok, eklenen/silinen anında görünür).
 // Script'in bu sürümü henüz yayınlanmadıysa CSV'ye düşer.
 export async function fetchProperties(): Promise<Property[]> {
+  cacheInfo.listingsAt = null;
   try {
     const { rows } = await get<{ rows?: Record<string, string>[] }>({ action: 'listings', _: String(Date.now()) });
     if (rows) return rows.filter((r) => Object.entries(r).some(([k, v]) => k !== '_row' && String(v).trim())).map(rowToProperty);
@@ -161,10 +162,18 @@ export async function fetchProperties(): Promise<Property[]> {
   return fetchPropertiesCsv();
 }
 
+// İnternet zayıf/yokken servis çalışanı (public/sw.js) en son görülen ilan listesini verir;
+// o durumda cevapta x-palmiye-cached-at damgası bulunur. Ekranda "eski veri" uyarısı için tutulur.
+export const cacheInfo: { listingsAt: number | null } = { listingsAt: null };
+
 // Apps Script GET cevabı CORS ile okunabilir (yalnızca v2 script yayınlandıysa vardır)
 async function get<T>(params: Record<string, string>): Promise<T> {
   const res = await fetch(`${SHEET_API_URL}?${new URLSearchParams(params)}`);
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  if (params.action === 'listings') {
+    const at = Number(res.headers.get('x-palmiye-cached-at'));
+    cacheInfo.listingsAt = at > 0 ? at : null;
+  }
   const body = await res.json();
   if (body.success === false) throw new Error(body.message || 'Apps Script hatası');
   return body as T;
