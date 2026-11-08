@@ -283,38 +283,94 @@ function setAdvisorCells_(a, obj) {
 }
 
 // ---------- Giriş geçmişi ----------
-// "Giriş Geçmişi" sayfası: en yeni kayıt en üstte. Girişler, hatalı denemeler ve
-// her danışmanın uygulamayı o gün ilk açışı yazılır (yöneticinin kimin kullandığını görmesi için).
+// "Giriş Geçmişi" sayfası: her danışman için tek satır. Son giriş/kullanım zamanı, son olay
+// (giriş, ilk giriş, hatalı deneme, uygulamayı kullanıyor), cihaz ve hesabın durumu.
+// Uygulama açıkken en çok 5 dakikada bir güncellenir.
+var LOGIN_HEADERS = ['Ad Soyad', 'E-posta', 'Son Giriş', 'Son Olay', 'Cihaz', 'Hesap'];
+
+function loginStamp_() {
+  return Utilities.formatDate(new Date(), TZ, 'dd.MM.yyyy HH:mm');
+}
+
 function loginSheet_() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var sh = ss.getSheetByName('Giriş Geçmişi');
-  if (!sh) {
-    sh = ss.insertSheet('Giriş Geçmişi');
-    sh.appendRow(['Tarih', 'E-posta', 'Ad Soyad', 'Olay', 'Cihaz']);
-    sh.setFrozenRows(1);
-    sh.getRange(1, 1, 1, 5).setFontWeight('bold');
-  }
+  if (!sh) sh = ss.insertSheet('Giriş Geçmişi');
+  var head = sh.getLastColumn() ? sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0].join('|') : '';
+  if (head !== LOGIN_HEADERS.join('|')) girisSayfasiniKur_(sh);
   return sh;
 }
-function loginLog_(email, name, event, device) {
+
+// Sayfayı danışman listesinden kurar: herkes için bir satır; var olan kayıtlar korunur, hesap durumu tazelenir
+function girisSayfasiniKur_(sh) {
+  sh = sh || SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Giriş Geçmişi') || SpreadsheetApp.getActiveSpreadsheet().insertSheet('Giriş Geçmişi');
+  clearAdvisorCache_();
+  // Sayfa zaten yeni düzendeyse mevcut kayıtlar korunur
+  var keep = {};
+  if (sh.getLastRow() > 1 && sh.getRange(1, 1, 1, LOGIN_HEADERS.length).getValues()[0].join('|') === LOGIN_HEADERS.join('|')) {
+    sh.getRange(2, 1, sh.getLastRow() - 1, LOGIN_HEADERS.length).getValues().forEach(function (v) {
+      keep[String(v[1]).trim().toLowerCase()] = v;
+    });
+  }
+  var rows = readSheet_('Danışmanlar').filter(function (r) { return String(r['E-posta']).trim(); }).map(function (r) {
+    var last = String(r['Son Giriş'] || '').trim();
+    var m = last.match(/^(\d{4})-(\d{2})-(\d{2}) (\d{2}:\d{2})/);
+    if (m) last = m[3] + '.' + m[2] + '.' + m[1] + ' ' + m[4];
+    var active = lowerTr_(r['Aktif']) !== 'hayır';
+    var account = !active ? 'Kapalı' : String(r['Şifre Özeti']).trim() ? 'Açık' : 'Davet bekliyor';
+    var old = keep[String(r['E-posta']).trim().toLowerCase()];
+    if (old) return [String(r['Ad Soyad']).trim(), old[1], old[2], old[3], old[4], account];
+    return [
+      String(r['Ad Soyad']).trim(),
+      String(r['E-posta']).trim().toLowerCase(),
+      last,
+      last ? 'Giriş yaptı' : '',
+      '',
+      account,
+    ];
+  });
+  sh.clear();
+  sh.getRange(1, 1, 1, LOGIN_HEADERS.length).setValues([LOGIN_HEADERS]).setFontWeight('bold');
+  if (rows.length) sh.getRange(2, 1, rows.length, LOGIN_HEADERS.length).setNumberFormat('@').setValues(rows);
+  sh.setFrozenRows(1);
+  sh.autoResizeColumns(1, LOGIN_HEADERS.length);
+  return sh;
+}
+
+function girisSayfasiniKur() {
+  girisSayfasiniKur_();
+}
+
+function loginLog_(email, name, event, device, account) {
   try {
+    email = String(email || '').trim().toLowerCase();
+    var a = advisorByEmail_(email);
+    if (!a) return; // listede olmayan e-postalar yazılmaz
     var sh = loginSheet_();
-    sh.insertRowAfter(1);
-    sh.getRange(2, 1, 1, 5).setValues([[now_(), email, name || '', event, String(device || '').slice(0, 60)]]);
+    var last = sh.getLastRow();
+    var emails = last > 1 ? sh.getRange(2, 2, last - 1, 1).getValues() : [];
+    var row = -1;
+    for (var i = 0; i < emails.length; i++) {
+      if (String(emails[i][0]).trim().toLowerCase() === email) { row = i + 2; break; }
+    }
+    if (row < 0) {
+      row = last + 1;
+      sh.getRange(row, 1, 1, 2).setNumberFormat('@').setValues([[a.name, email]]);
+    }
+    sh.getRange(row, 3, 1, 2).setNumberFormat('@').setValues([[loginStamp_(), event]]);
+    if (device) sh.getRange(row, 5).setValue(String(device).slice(0, 60));
+    if (account) sh.getRange(row, 6).setValue(account);
   } catch (e) { /* kayıt tutulamazsa giriş yine çalışır */ }
 }
-// Oturumu açık danışmanın o günkü ilk kullanımı (günde bir satır)
+
+// Oturumu açık danışmanın kullanımı: en çok 5 dakikada bir "Son Giriş" güncellenir
 function markSeen_(a) {
   try {
-    var day = Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd');
     var key = 'seen_' + a.email;
     var cache = CacheService.getScriptCache();
-    if (cache.get(key) === day) return;
-    var props = PropertiesService.getScriptProperties();
-    if (props.getProperty(key) === day) { cache.put(key, day, 21600); return; }
-    props.setProperty(key, day);
-    cache.put(key, day, 21600);
-    loginLog_(a.email, a.name, 'Uygulamayı kullandı', '');
+    if (cache.get(key)) return;
+    cache.put(key, '1', 300);
+    loginLog_(a.email, a.name, 'Uygulamayı kullanıyor', '');
   } catch (e) { /* önemsiz */ }
 }
 
@@ -325,8 +381,8 @@ function doLogin_(data) {
     var a = advisorByEmail_(email);
     var event = out.success
       ? (data.action === 'activate' ? 'İlk giriş (hesap açıldı)' : 'Giriş yaptı')
-      : 'Başarısız giriş: ' + (out.message || '');
-    loginLog_(email, a ? a.name : '', event, data.device);
+      : 'Hatalı giriş denemesi: ' + (out.message || '');
+    loginLog_(email, a ? a.name : '', event, data.device, out.success ? 'Açık' : '');
   }
   return out;
 }
@@ -532,6 +588,7 @@ function kurulum() {
   var talepler = sheet_('Talepler', ['Talep No', 'Tarih', 'Durum']);
   headerMap_(talepler, ['Sonraki Arama', 'Son Görüşme', 'Görüşme Notu']);
   clearAdvisorCache_();
+  girisSayfasiniKur_();
   return added + ' kişi eklendi. Davet kodları "Danışmanlar" sayfasında.';
 }
 
