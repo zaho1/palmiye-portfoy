@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
-import { Eye, EyeOff, Heart, Lock, LogOut, RefreshCw, Settings as SettingsIcon, UserRound, Users } from 'lucide-react';
+import { Eye, EyeOff, Heart, Lock, LogOut, MessageSquarePlus, RefreshCw, Settings as SettingsIcon, UserRound, Users } from 'lucide-react';
 import type { Property } from '../../types';
-import { changePassword, fetchAdminStats, formatPhone, formatPrice, getApiToken, type AdminStats, type MonthRow } from '../../lib/sheets';
+import { changePassword, fetchAdminStats, formatPhone, formatPrice, getApiToken, sendFeedback, type AdminStats, type FeedbackKind, type MonthRow } from '../../lib/sheets';
 import { isAdmin as isAdminEmail, isHiddenPerson } from '../../lib/admin';
 import { personOf, useDirectory } from '../../lib/people';
 import { useSettings, type ThemeChoice } from '../../lib/settings';
@@ -47,7 +47,8 @@ export default function MobileMe({ properties, userName, userEmail, sync, presen
   const directory = useDirectory();
   const { settings, update, favorites } = useSettings();
   const [pwOpen, setPwOpen] = useState(false);
-  const key = userName.toLocaleLowerCase('tr');
+  const [fbOpen, setFbOpen] = useState(false);
+  const key =userName.toLocaleLowerCase('tr');
   const counts = useMemo(
     () => ({
       mine: key ? properties.filter((p) => p.status === 'Aktif' && p.agentName.toLocaleLowerCase('tr').includes(key)).length : 0,
@@ -85,6 +86,7 @@ export default function MobileMe({ properties, userName, userEmail, sync, presen
         <Row href="#/favoriler" icon={<Heart />} label="Favorilerim" value={String(counts.favorites)} />
         <Row href="#/danismanlar" icon={<Users />} label="Danışmanlar" value={String(directory.filter((u) => !isHiddenPerson(u.email)).length)} />
         <Row href="#/ayarlar" icon={<SettingsIcon />} label="Ayarlar" />
+        <Row onClick={() => setFbOpen(true)} icon={<MessageSquarePlus />} label="Geri bildirim yaz" />
         {getApiToken() && <Row onClick={() => setPwOpen(true)} icon={<Lock />} label="Şifremi değiştir" />}
       </section>
 
@@ -132,7 +134,70 @@ export default function MobileMe({ properties, userName, userEmail, sync, presen
       </button>
 
       {pwOpen && <PasswordSheet onClose={() => setPwOpen(false)} />}
+      {fbOpen && <FeedbackSheet onClose={() => setFbOpen(false)} />}
     </div>
+  );
+}
+
+// Ofisteki herkes görüş / hata / istek yazar; Sheet'te "Geri Bildirimler" sayfasına kişi adıyla düşer.
+function FeedbackSheet({ onClose }: { onClose: () => void }) {
+  const [kind, setKind] = useState<FeedbackKind>('Öneri');
+  const [text, setText] = useState('');
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [done, setDone] = useState(false);
+
+  const submit = async () => {
+    setError('');
+    if (text.trim().length < 3) return setError('Lütfen mesajınızı yazın.');
+    setBusy(true);
+    try {
+      const res = await sendFeedback(kind, text.trim());
+      if (res.success) setDone(true);
+      else setError(res.message || 'Gönderilemedi.');
+    } catch {
+      setError('Sunucuya ulaşılamadı. Tekrar deneyin.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Sheet
+      title="Geri bildirim"
+      onClose={onClose}
+      footer={
+        done ? (
+          <button onClick={onClose} className={`${btnBig} w-full`}>Tamam</button>
+        ) : (
+          <div className="flex gap-3">
+            <button onClick={onClose} className={`${btnBigSecondary} flex-1`}>Vazgeç</button>
+            <button onClick={submit} disabled={busy} className={`${btnBig} flex-[2]`}>{busy ? 'Gönderiliyor…' : 'Gönder'}</button>
+          </div>
+        )
+      }
+    >
+      {done ? (
+        <p className="text-[15px]">Teşekkürler, geri bildiriminiz yönetime iletildi.</p>
+      ) : (
+        <div className="space-y-4">
+          <p className="text-[14px] text-muted">Aklınıza takılan, eksik bulduğunuz ya da bozuk çalışan bir şey varsa yazın. Adınızla kaydedilir.</p>
+          <Segmented label="Tür" value={kind} options={['Öneri', 'Hata', 'İstek']} onChange={(v) => setKind(v as FeedbackKind)} />
+          <MField label="Mesajınız" htmlFor="fb-text" note={`${text.length}/2000`}>
+            <textarea
+              id="fb-text"
+              rows={6}
+              maxLength={2000}
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+              placeholder="Ne olmasını istersiniz? Hata varsa hangi ekranda ne oldu?"
+              className="field-lg"
+            />
+          </MField>
+          {error && <p role="alert" className="text-[14px] text-negative">{error}</p>}
+        </div>
+      )}
+    </Sheet>
   );
 }
 

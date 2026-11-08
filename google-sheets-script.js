@@ -770,6 +770,25 @@ function doPost(e) {
     var who = g.who;
     var sh, map, row;
 
+    // Geri bildirim: "Geri Bildirimler" sayfasına yeni satır (kim, ne zaman, ne yazdı)
+    if (data.action === 'feedback') {
+      var msg = String(data.message || '').trim().slice(0, 2000);
+      if (msg.length < 3) return json_({ success: false, message: 'Lütfen mesajınızı yazın.' });
+      var kind = ['Öneri', 'Hata', 'İstek'].indexOf(data.kind) !== -1 ? data.kind : 'Öneri';
+      var fsh = sheet_('Geri Bildirimler', ['Tarih', 'E-posta', 'Ad Soyad', 'Tür', 'Mesaj', 'Ekran', 'Cihaz', 'Durum']);
+      fsh.appendRow([
+        now_(),
+        g.advisor ? g.advisor.email : who,
+        g.advisor ? g.advisor.name : '',
+        kind,
+        msg,
+        String(data.screen || '').slice(0, 80),
+        String(data.device || '').slice(0, 80),
+        'Yeni'
+      ]);
+      return json_({ success: true });
+    }
+
     if (data.action === 'changePassword') {
       if (!g.advisor) return json_(AUTH_FAIL);
       return json_(changePassword_(g.advisor, data));
