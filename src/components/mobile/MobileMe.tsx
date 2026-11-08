@@ -1,8 +1,8 @@
 import { useMemo, useState, type ReactNode } from 'react';
-import { Eye, EyeOff, Heart, Lock, LogOut, RefreshCw, Settings as SettingsIcon, UserRound } from 'lucide-react';
+import { Eye, EyeOff, Heart, Lock, LogOut, RefreshCw, Settings as SettingsIcon, UserRound, Users } from 'lucide-react';
 import type { Property } from '../../types';
 import { changePassword, formatPhone, getApiToken } from '../../lib/sheets';
-import { personOf } from '../../lib/people';
+import { personOf, useDirectory } from '../../lib/people';
 import { useSettings, type ThemeChoice } from '../../lib/settings';
 import type { SyncState } from '../Sidebar';
 import { InstallCard } from './InstallApp';
@@ -43,6 +43,7 @@ function Row({ href, onClick, icon, label, value }: { href?: string; onClick?: (
 
 // "Ben" sekmesi: profil, uygulamayı yükle, kısayollar, tema, çıkış
 export default function MobileMe({ properties, userName, userEmail, sync, presentMode, onTogglePresent, onRefresh, onLogout }: Props) {
+  const directory = useDirectory();
   const { settings, update, favorites } = useSettings();
   const [pwOpen, setPwOpen] = useState(false);
   const key = userName.toLocaleLowerCase('tr');
@@ -78,6 +79,7 @@ export default function MobileMe({ properties, userName, userEmail, sync, presen
       <section className="bg-surface rounded-2xl overflow-hidden">
         <Row href="#/benim" icon={<UserRound />} label="Benim ilanlarım" value={String(counts.mine)} />
         <Row href="#/favoriler" icon={<Heart />} label="Favorilerim" value={String(counts.favorites)} />
+        <Row href="#/danismanlar" icon={<Users />} label="Danışmanlar" value={String(directory.length)} />
         <Row href="#/ayarlar" icon={<SettingsIcon />} label="Ayarlar" />
         {getApiToken() && <Row onClick={() => setPwOpen(true)} icon={<Lock />} label="Şifremi değiştir" />}
       </section>

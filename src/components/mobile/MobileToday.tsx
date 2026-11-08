@@ -1,5 +1,5 @@
 import { useMemo, useState, type ReactNode } from 'react';
-import { Map as MapIcon, RefreshCw, UserPlus } from 'lucide-react';
+import { Heart, Map as MapIcon, RefreshCw, UserPlus, Users } from 'lucide-react';
 import type { ActivityEntry, CustomerRequest, Property } from '../../types';
 import { daysSince, formatPrice, isRecent, isStale, relativeDay, type RequestFollowUp } from '../../lib/sheets';
 import { TONE_CLASS, callLabel, isDue } from '../../lib/followup';
@@ -136,6 +136,14 @@ export default function MobileToday({ properties, requests, activity, userName, 
         <a href="#/harita" className={tile}>
           <MapIcon className="w-6 h-6 text-muted shrink-0" />
           Harita
+        </a>
+        <a href="#/danismanlar" className={tile}>
+          <Users className="w-6 h-6 text-muted shrink-0" />
+          Danışmanlar
+        </a>
+        <a href="#/favoriler" className={tile}>
+          <Heart className="w-6 h-6 text-muted shrink-0" />
+          Favorilerim
         </a>
       </div>
 

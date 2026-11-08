@@ -20,6 +20,7 @@ import MobileNewRequest from './MobileNewRequest';
 import MobileNewListing from './MobileNewListing';
 import MobileMe from './MobileMe';
 import MobileToday from './MobileToday';
+import MobileTeam from './MobileTeam';
 import PullToRefresh from './PullToRefresh';
 import { ChevronLeftIcon } from './icons';
 
@@ -149,7 +150,7 @@ export default function MobileApp(p: MobileAppProps) {
     route.name === 'today' ? 'today'
     : route.name === 'list' || route.name === 'detail' || route.name === 'map' ? 'list'
     : route.name === 'requests' || route.name === 'newRequest' ? 'requests'
-    : route.name === 'me' || route.name === 'mine' || route.name === 'favorites' || route.name === 'settings' ? 'me'
+    : route.name === 'me' || route.name === 'mine' || route.name === 'favorites' || route.name === 'settings' || route.name === 'team' || route.name === 'agent' ? 'me'
     : null;
   const hideNav = route.name === 'new' || route.name === 'newRequest' || route.name === 'brochure';
 
@@ -214,6 +215,11 @@ export default function MobileApp(p: MobileAppProps) {
       )}
       {route.name === 'favorites' && (
         <MobileListings properties={p.properties} requests={p.requests} scope="favorites" preset={{}} userName={p.userName} presentMode={p.presentMode} onTogglePresent={p.onTogglePresent} loading={p.loading} loadError={p.loadError} onRefresh={p.onRefresh} />
+      )}
+
+      {route.name === 'team' && <MobileTeam properties={p.properties} userEmail={p.currentUser} />}
+      {route.name === 'agent' && (
+        <MobileListings key={route.agent} properties={p.properties} requests={p.requests} scope="agent" agentName={route.agent} preset={{}} userName={p.userName} presentMode={p.presentMode} onTogglePresent={p.onTogglePresent} loading={p.loading} loadError={p.loadError} onRefresh={p.onRefresh} />
       )}
 
       {route.name === 'newRequest' && (

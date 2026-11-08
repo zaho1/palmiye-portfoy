@@ -24,9 +24,9 @@ import { Thumb, StatusPill } from '../ui';
 import type { ListPreset, Quick } from '../ListingList';
 import { Chip, Segmented, Sheet, MField, btnBig, btnBigSecondary } from './controls';
 import { InstallBanner } from './InstallApp';
-import { BookmarkIcon, CheckIcon, NavigationIcon } from './icons';
+import { BookmarkIcon, CheckIcon, ChevronLeftIcon, NavigationIcon } from './icons';
 
-type Scope = 'all' | 'mine' | 'favorites';
+type Scope = 'all' | 'mine' | 'favorites' | 'agent';
 type Deal = 'Hepsi' | 'Satılık' | 'Kiralık';
 type MQuick = Quick | 'talep';
 type Sort = 'newest' | 'nearest' | 'price-asc' | 'price-desc' | 'size-desc' | 'oldest-update';
@@ -42,6 +42,8 @@ interface Props {
   loading: boolean;
   loadError: boolean;
   onRefresh: () => void;
+  /** scope 'agent': bu danışmanın ilanları */
+  agentName?: string;
 }
 
 const STATUSES: { status: ListingStatus; label: string }[] = [
@@ -83,7 +85,7 @@ const filterLabel = (f: Pick<SavedFilter, 'deal' | 'kind' | 'region' | 'minPrice
   return parts.join(' · ') || 'Tüm ilanlar';
 };
 
-export default function MobileListings({ properties, requests, scope, preset, userName, presentMode, onTogglePresent, loading, loadError, onRefresh }: Props) {
+export default function MobileListings({ properties, requests, scope, preset, userName, presentMode, onTogglePresent, loading, loadError, onRefresh, agentName = '' }: Props) {
   const { settings, favorites } = useSettings();
   const saved = useStore(savedFiltersStore);
   const me = useMyPosition();
@@ -139,8 +141,12 @@ export default function MobileListings({ properties, requests, scope, preset, us
   const scoped = useMemo(() => {
     if (scope === 'mine') return properties.filter((p) => p.agentName.toLocaleLowerCase('tr').includes(mineKey));
     if (scope === 'favorites') return properties.filter((p) => favorites.includes(p.id));
+    if (scope === 'agent') {
+      const key = agentName.toLocaleLowerCase('tr').trim();
+      return properties.filter((p) => p.agentName.toLocaleLowerCase('tr').trim() === key);
+    }
     return properties;
-  }, [properties, scope, mineKey, favorites]);
+  }, [properties, scope, mineKey, favorites, agentName]);
 
   const kinds = useMemo(() => {
     const dynamic = scoped.map((p) => kindOf(p.category)).filter(Boolean);
@@ -282,12 +288,21 @@ export default function MobileListings({ properties, requests, scope, preset, us
     }
   };
 
-  const title = scope === 'mine' ? 'Benim ilanlarım' : scope === 'favorites' ? 'Favorilerim' : 'İlanlar';
+  const title = scope === 'mine' ? 'Benim ilanlarım' : scope === 'favorites' ? 'Favorilerim' : scope === 'agent' ? agentName : 'İlanlar';
   const pending = loading && !properties.length;
 
   return (
     <div className={selecting ? 'pb-24' : ''}>
       <header className="m-top px-4 pt-4 pb-3 flex items-center gap-1">
+        {scope === 'agent' && (
+          <button
+            onClick={() => (window.history.length > 1 ? window.history.back() : (window.location.hash = '#/danismanlar'))}
+            aria-label="Geri"
+            className="w-11 h-11 -ml-2 rounded-full flex items-center justify-center active:bg-surface shrink-0"
+          >
+            <ChevronLeftIcon className="w-6 h-6" />
+          </button>
+        )}
         <h1 className="text-2xl font-semibold flex-1 min-w-0 truncate">{title}</h1>
         {scope === 'all' && (
           <a href="#/harita" aria-label="Haritada göster" className="w-11 h-11 rounded-full flex items-center justify-center text-muted active:bg-surface">
@@ -390,8 +405,8 @@ export default function MobileListings({ properties, requests, scope, preset, us
               ? 'Henüz favori ilan yok. Kartın üstündeki kalp simgesiyle ekleyin.'
               : filterCount || search.trim()
                 ? 'Bu aramayla eşleşen ilan yok. Filtreyi genişletmeyi deneyin.'
-                : scope === 'mine'
-                  ? `${userName} adına kayıtlı ilan yok.`
+                : scope === 'mine' || scope === 'agent'
+                  ? `${scope === 'agent' ? agentName : userName} adına kayıtlı ilan yok.`
                   : 'Bu durumda ilan yok.'}
           </div>
         ) : (

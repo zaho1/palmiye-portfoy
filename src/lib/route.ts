@@ -10,6 +10,8 @@ export type Route =
   | { name: 'requests' }
   | { name: 'map' }
   | { name: 'me' }
+  | { name: 'team' }
+  | { name: 'agent'; agent: string }
   | { name: 'settings' }
   | { name: 'detail'; id: string }
   | { name: 'brochure'; id: string };
@@ -17,6 +19,7 @@ export type Route =
 // Hash yönlendirme: tarayıcının geri tuşu çalışır, linkler paylaşılabilir.
 // Liste filtreleri: #/?bolge=Altınova, #/?filtre=teyitsiz|yeni|eksik|indirim
 // Telefon: #/?yakin=1 (yakınımdakiler), #/?kf=<id> (kayıtlı filtre)
+// #/danismanlar (ofis rehberi), #/danisman/<ad> (o danışmanın ilanları)
 // #/bugun, #/talep/yeni ve #/ben yalnızca telefon ekranlarıdır; masaüstünde App içinde karşılığına düşer.
 export function parseHash(hash: string): Route {
   const h = hash.replace(/^#\/?/, '');
@@ -30,6 +33,8 @@ export function parseHash(hash: string): Route {
   if (h === 'bugun') return { name: 'today' };
   if (h === 'harita') return { name: 'map' };
   if (h === 'ben') return { name: 'me' };
+  if (h === 'danismanlar') return { name: 'team' };
+  if (h.startsWith('danisman/')) return { name: 'agent', agent: decodeURIComponent(h.slice(9)) };
   if (h === 'ayarlar') return { name: 'settings' };
   const q = new URLSearchParams(h.startsWith('?') ? h.slice(1) : '');
   const quick = q.get('filtre');

@@ -134,7 +134,7 @@ export default function App() {
           ? { name: 'requests' }
           : rawRoute.name === 'me'
             ? { name: 'settings' }
-            : rawRoute.name === 'today'
+            : rawRoute.name === 'today' || rawRoute.name === 'team' || rawRoute.name === 'agent'
               ? { name: 'list', preset: {} }
               : rawRoute,
     [isMobile, rawRoute],
@@ -172,6 +172,10 @@ export default function App() {
 
   // State yalnızca cevap gelince değişir; "yükleniyor" durumunu çağıran taraf açar.
   const fetchAll = useCallback(() => {
+    // Ofis rehberi her yenilemede tazelenir: yeni eklenen danışmanlar hemen görünür
+    fetchAdvisors()
+      .then((rows) => rows.length && directoryStore.set(rows))
+      .catch(() => undefined);
     fetchProperties()
       .then((rows) => {
         // Sheets henüz işlemediyse cihazda bekleyen değişiklikler üstüne uygulanır (gidip gelme olmaz)
@@ -273,11 +277,10 @@ export default function App() {
   useEffect(() => {
     if (!currentUser) return;
     fetchApiInfo().then((i) => setServerEnforced(!!i?.enforced));
-    if (readStored('palmiye_mode') === 'server') {
-      fetchAdvisors()
-        .then((rows) => rows.length && directoryStore.set(rows))
-        .catch(() => undefined);
-    }
+    // Rehber her girişte tazelenir (eski ortak şifreyle girenlerde de); yeni eklenen danışmanlar hemen görünür
+    fetchAdvisors()
+      .then((rows) => rows.length && directoryStore.set(rows))
+      .catch(() => undefined);
   }, [currentUser]);
 
   const logLocal = useCallback(
@@ -657,8 +660,9 @@ export default function App() {
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                     {directory
                       .filter((user) => !agentSearch.trim() || user.name.toLocaleLowerCase('tr').includes(agentSearch.toLocaleLowerCase('tr')))
-                      .map((user) => {
-                      const agentCount = properties.filter(p => p.agentName === user.name && p.status === 'Aktif').length;
+                      .map((user) => ({ user, agentCount: properties.filter((p) => p.agentName === user.name && p.status === 'Aktif').length }))
+                      .sort((a, b) => b.agentCount - a.agentCount || a.user.name.localeCompare(b.user.name, 'tr'))
+                      .map(({ user, agentCount }) => {
                       const agentPhone = user.phone || properties.find(p => p.agentName === user.name && p.agentPhone)?.agentPhone || '';
                       const digits = phoneDigits(agentPhone);
                       const btn = 'flex-1 h-9 rounded-lg flex items-center justify-center gap-2 text-sm transition-colors';
