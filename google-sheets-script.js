@@ -274,6 +274,42 @@ function authed_(token) {
   }
 }
 
+// Yönetici hesapları (uygulamada "Ben" sekmesinde özet görür)
+var ADMIN_EMAILS = ['ilbey@palmiyeyatirim.com', 'zahit@palmiyeyatirim.com', 'omer@palmiyeyatirim.com'];
+
+function adminStats_() {
+  var month = Utilities.formatDate(new Date(), TZ, 'yyyy-MM');
+  var listings = readRows_(listingSheet_());
+  var active = listings.filter(function (r) { return String(r['Durum'] || '').trim() === 'Aktif'; });
+  var portfolioValue = active.reduce(function (sum, r) { return sum + parsePrice_(r['Fiyat']); }, 0);
+  var sales = readSheet_('Satışlar');
+  var monthSales = sales.filter(function (r) { return String(r['Tarih'] || '').indexOf(month) === 0; });
+  var byAdvisorMap = {};
+  var monthValue = 0;
+  monthSales.forEach(function (r) {
+    var name = String(r['Getiren Danışman'] || '').trim() || '—';
+    byAdvisorMap[name] = byAdvisorMap[name] || { name: name, count: 0, value: 0 };
+    byAdvisorMap[name].count++;
+    var price = parsePrice_(r['Gerçekleşen Fiyat']);
+    byAdvisorMap[name].value += price;
+    monthValue += price;
+  });
+  var byAdvisor = Object.keys(byAdvisorMap).map(function (k) { return byAdvisorMap[k]; })
+    .sort(function (a, b) { return b.count - a.count || b.value - a.value; });
+  return {
+    month: month,
+    activeCount: active.length,
+    portfolioValue: portfolioValue,
+    soldMonthCount: monthSales.length,
+    soldMonthValue: monthValue,
+    soldTotalCount: sales.length,
+    monthSales: monthSales.slice().reverse().map(function (r) {
+      return { title: r['İlan'] || '', date: r['Tarih'] || '', price: parsePrice_(r['Gerçekleşen Fiyat']), broughtBy: r['Getiren Danışman'] || '' };
+    }),
+    byAdvisor: byAdvisor,
+  };
+}
+
 function userPublic_(a) {
   return { email: a.email, name: a.name, phone: a.phone, role: a.role };
 }
@@ -877,6 +913,11 @@ function doGet(e) {
     if (p.action === 'listings') return json_({ success: true, rows: readRows_(listingSheet_()) });
     if (p.action === 'requests') return json_({ success: true, rows: readSheet_('Talepler') });
     if (p.action === 'log') return json_({ success: true, rows: readSheet_('Hareketler').reverse().slice(0, 200) });
+    // Yönetici özeti: sadece yöneticiler (portföy değeri, bu ay satılanlar, danışman dağılımı)
+    if (p.action === 'stats') {
+      if (!g.advisor || ADMIN_EMAILS.indexOf(g.advisor.email) === -1) return json_({ success: false, message: 'Yetkisiz' });
+      return json_({ success: true, stats: adminStats_() });
+    }
     if (p.action === 'owner') {
       if (!g.advisor && p.key !== OFFICE_KEY) return json_({ success: false, message: 'Yetkisiz' });
       var rows = readSheet_('Mal Sahipleri').filter(function (r) { return String(r['İlan Başlığı']).trim() === String(p.title).trim(); });

@@ -265,6 +265,22 @@ export async function fetchAdvisors(): Promise<SessionUser[]> {
   return rows ?? [];
 }
 
+export type AdminStats = {
+  month: string;
+  activeCount: number;
+  portfolioValue: number;
+  soldMonthCount: number;
+  soldMonthValue: number;
+  soldTotalCount: number;
+  monthSales: { title: string; date: string; price: number; broughtBy: string }[];
+  byAdvisor: { name: string; count: number; value: number }[];
+};
+// Sadece yöneticilere açık; yetkisiz hesaplarda null döner
+export async function fetchAdminStats(): Promise<AdminStats | null> {
+  const r = await get<{ success?: boolean; stats?: AdminStats }>({ action: 'stats' });
+  return r.success && r.stats ? r.stats : null;
+}
+
 export async function fetchRequests(): Promise<CustomerRequest[]> {
   const { rows } = await get<{ rows?: Record<string, string>[] }>({ action: 'requests' });
   if (!rows) throw new Error("Apps Script v2 yayınlanmamış");

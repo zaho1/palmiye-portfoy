@@ -1,7 +1,7 @@
-import { useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Eye, EyeOff, Heart, Lock, LogOut, RefreshCw, Settings as SettingsIcon, UserRound, Users } from 'lucide-react';
 import type { Property } from '../../types';
-import { changePassword, formatPhone, getApiToken } from '../../lib/sheets';
+import { changePassword, fetchAdminStats, formatPhone, formatPrice, getApiToken, type AdminStats } from '../../lib/sheets';
 import { personOf, useDirectory } from '../../lib/people';
 import { useSettings, type ThemeChoice } from '../../lib/settings';
 import type { SyncState } from '../Sidebar';
@@ -20,6 +20,9 @@ interface Props {
   onRefresh: () => void;
   onLogout: () => void;
 }
+
+// Yönetici hesapları: "Ben" sekmesinde portföy ve satış özeti görürler (sunucu da aynı listeyi kontrol eder)
+const ADMIN_EMAILS = ['ilbey@palmiyeyatirim.com', 'zahit@palmiyeyatirim.com', 'omer@palmiyeyatirim.com'];
 
 const THEME_LABEL: Record<ThemeChoice, string> = { dark: 'Koyu', light: 'Açık', system: 'Cihaza göre' };
 const THEME_BY_LABEL: Record<string, ThemeChoice> = { Koyu: 'dark', Açık: 'light', 'Cihaza göre': 'system' };
@@ -54,6 +57,7 @@ export default function MobileMe({ properties, userName, userEmail, sync, presen
     }),
     [properties, key, favorites],
   );
+  const isAdmin = ADMIN_EMAILS.includes(userEmail.trim().toLowerCase());
   const phone = settings.phone || personOf(userEmail)?.phone || '';
   const loadedText = sync.loadedAt ? sync.loadedAt.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' }) : '—';
   const status = sync.error ? 'Sheets okunamadı' : !sync.v2Ready ? 'İlanlar bağlı · Apps Script v2 bekleniyor' : 'Google Sheets bağlı';
@@ -72,6 +76,8 @@ export default function MobileMe({ properties, userName, userEmail, sync, presen
           {phone && <p className="text-[14px] text-faint num">{formatPhone(phone)}</p>}
         </div>
       </section>
+
+      {isAdmin && <AdminSummary />}
 
       <InstallCard />
       <PushSettings />
@@ -128,6 +134,80 @@ export default function MobileMe({ properties, userName, userEmail, sync, presen
       </button>
 
       {pwOpen && <PasswordSheet onClose={() => setPwOpen(false)} />}
+    </div>
+  );
+}
+
+function AdminSummary() {
+  const [stats, setStats] = useState<AdminStats | null>(null);
+  const [failed, setFailed] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const load = () => {
+    setLoading(true);
+    fetchAdminStats()
+      .then((s) => { setStats(s); setFailed(!s); })
+      .catch(() => setFailed(true))
+      .finally(() => setLoading(false));
+  };
+  useEffect(load, []);
+
+  const monthName = stats ? new Date(`${stats.month}-01T00:00:00`).toLocaleDateString('tr-TR', { month: 'long', year: 'numeric' }) : '';
+  return (
+    <section className="bg-surface rounded-2xl p-4 space-y-4">
+      <div className="flex items-center justify-between">
+        <h2 className="text-[16px] font-semibold">Yönetici özeti</h2>
+        <button onClick={load} aria-label="Özeti yenile" className="w-9 h-9 rounded-full flex items-center justify-center text-muted active:bg-active">
+          <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+        </button>
+      </div>
+      {!stats ? (
+        <p className="text-[14px] text-muted">{failed ? 'Özet alınamadı. Apps Script güncellemesi yapılmış olmalı.' : 'Yükleniyor…'}</p>
+      ) : (
+        <>
+          <div className="grid grid-cols-2 gap-3">
+            <Tile label="Aktif ilan" value={String(stats.activeCount)} />
+            <Tile label="Portföy değeri" value={formatPrice(stats.portfolioValue)} />
+            <Tile label={`Bu ay satılan (${monthName})`} value={String(stats.soldMonthCount)} sub={stats.soldMonthValue ? formatPrice(stats.soldMonthValue) : undefined} />
+            <Tile label="Toplam satış" value={String(stats.soldTotalCount)} />
+          </div>
+          {stats.byAdvisor.length > 0 && (
+            <div>
+              <p className="text-[13px] text-faint mb-1">Bu ay danışmanlara göre</p>
+              <ul className="space-y-1">
+                {stats.byAdvisor.map((a) => (
+                  <li key={a.name} className="flex justify-between text-[15px]">
+                    <span className="truncate">{a.name}</span>
+                    <span className="num text-muted">{a.count} satış{a.value ? ` · ${formatPrice(a.value)}` : ''}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {stats.monthSales.length > 0 && (
+            <div>
+              <p className="text-[13px] text-faint mb-1">Bu ayki satışlar</p>
+              <ul className="space-y-2">
+                {stats.monthSales.map((s, i) => (
+                  <li key={i} className="text-[15px]">
+                    <p className="truncate">{s.title}</p>
+                    <p className="text-[13px] text-faint num">{s.date}{s.broughtBy ? ` · ${s.broughtBy}` : ''}{s.price ? ` · ${formatPrice(s.price)}` : ''}</p>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </>
+      )}
+    </section>
+  );
+}
+
+function Tile({ label, value, sub }: { label: string; value: string; sub?: string }) {
+  return (
+    <div className="bg-raised rounded-xl p-3 min-w-0">
+      <p className="text-[12px] text-faint leading-tight">{label}</p>
+      <p className="text-[18px] font-semibold num mt-1 truncate">{value}</p>
+      {sub && <p className="text-[12px] text-muted num truncate">{sub}</p>}
     </div>
   );
 }
