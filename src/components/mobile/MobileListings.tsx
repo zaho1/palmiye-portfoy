@@ -310,7 +310,7 @@ export default function MobileListings({ properties, requests, scope, preset, us
 
       {scope === 'all' && <InstallBanner />}
 
-      <div className="sticky top-0 z-30 bg-ground m-top px-4 py-3 flex gap-2">
+      <div className="sticky top-0 z-30 bg-ground px-4 pb-3 flex gap-2" style={{ paddingTop: 'calc(env(safe-area-inset-top) + 8px)' }}>
         <div className="relative flex-1 min-w-0">
           <Search className="w-5 h-5 absolute left-3.5 top-1/2 -translate-y-1/2 text-faint" aria-hidden="true" />
           <label htmlFor="m-search" className="sr-only">İlan ara</label>
