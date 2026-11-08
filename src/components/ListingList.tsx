@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Heart, LayoutGrid, List, Plus } from 'lucide-react';
+import { Heart, LayoutGrid, List, Plus, SlidersHorizontal, UserPlus } from 'lucide-react';
 import type { ActivityEntry, CustomerRequest, ListingStatus, Property } from '../types';
 import {
   REGIONS,
@@ -78,6 +78,7 @@ export default function ListingList({ properties, requests, activity, scope, pre
   const [minPrice, setMinPrice] = useState('');
   const [maxPrice, setMaxPrice] = useState('');
   const [sort, setSort] = useState<Sort>(preset.quick === 'teyitsiz' ? 'oldest-update' : preset.quick === 'yeni' ? 'newest' : 'sheet');
+  const [moreFilters, setMoreFilters] = useState(false);
   const view = settings.defaultView;
 
   const mineKey = userName.toLocaleLowerCase('tr');
@@ -155,11 +156,7 @@ export default function ListingList({ properties, requests, activity, scope, pre
   const hasDates = scoped.some((p) => p.createdAt);
   const addedThisMonth = scoped.filter((p) => sameMonth(p.createdAt)).length;
   const soldThisMonth = scoped.filter((p) => p.status === 'Satıldı' && sameMonth(p.updatedAt)).length;
-  const soldTotal = scoped.filter((p) => p.status === 'Satıldı').length;
-  const stale = active.filter((p) => isStale(p, staleDays)).length;
   const matchedListings = active.filter((p) => (matchCount.get(p.id) ?? 0) > 0).length;
-  const missingParcel = active.filter((p) => !p.adaParsel?.trim()).length;
-  const noPhoto = active.filter((p) => !p.images?.length).length;
 
   const filtersOn = deal !== 'Hepsi' || kind !== 'Hepsi' || region !== 'Hepsi' || quick || minPrice || maxPrice || searchTerm.trim();
   const clearFilters = () => {
@@ -184,48 +181,59 @@ export default function ListingList({ properties, requests, activity, scope, pre
     : region !== 'Hepsi' && preset.region ? `${region} ilanları`
     : 'Ofis portföyü';
 
-  const finding = [
-    stale > 0 && `${stale} ilan ${staleDays} gündür teyit edilmedi`,
-    missingParcel > 0 && `${missingParcel} ilanın ada/parseli eksik`,
-    noPhoto > 0 && `${noPhoto} ilanın fotoğrafı yok`,
-  ].filter(Boolean);
 
   return (
     <div className="space-y-4">
-      {/* Başlık satırı */}
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div className="min-w-0">
-          <h1 className="text-xl font-semibold">{title}</h1>
-          <p className="text-muted mt-1">
-            {pending
-              ? 'Google Sheets verileri yükleniyor…'
-              : scope === 'favorites'
-                ? 'Yıldızladığınız ilanlar bu cihazda saklanır.'
-                : 'Yalova · bütün danışmanların ilanları tek listede.'}
-          </p>
-        </div>
-        <a href="#/yeni" className="h-9 px-4 rounded-full bg-ink text-ground text-sm font-semibold flex items-center gap-2 hover:bg-muted transition-colors lg:hidden">
-          <Plus className="w-4 h-4" /> Yeni ilan
-        </a>
+      {/* Başlık */}
+      <div className="min-w-0">
+        <h1 className="text-xl font-semibold">{title}</h1>
+        <p className="text-muted mt-1">
+          {pending
+            ? 'Google Sheets verileri yükleniyor…'
+            : scope === 'favorites'
+              ? 'Yıldızladığınız ilanlar bu cihazda saklanır.'
+              : 'Yalova · bütün danışmanların ilanları tek listede.'}
+        </p>
       </div>
 
-      {/* Özet: tek kart, 1px ayraçlarla bölünmüş. Telefonda yalnızca iş çıkaran üç kutu. */}
-      <section aria-label="Özet" className="bg-surface rounded-xl grid grid-cols-3 lg:grid-cols-5 [&>*]:p-2 [&>*]:lg:p-2.5 divide-x divide-rule">
+      {/* Ana işlemler: en çok kullanılan iki iş, ortada ve belirgin */}
+      {scope !== 'favorites' && !quick && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-3xl mx-auto w-full py-2">
+          <a
+            href="#/yeni"
+            className="group flex items-center gap-4 rounded-2xl bg-ink text-ground px-5 py-4 hover:opacity-90 transition-opacity"
+          >
+            <span className="w-11 h-11 rounded-full bg-ground/15 flex items-center justify-center shrink-0">
+              <Plus className="w-5 h-5" />
+            </span>
+            <span className="min-w-0">
+              <span className="block text-base font-semibold">Yeni ilan ekle</span>
+              <span className="block text-xs opacity-75">Fotoğraf, fiyat ve konumla portföye ekleyin</span>
+            </span>
+          </a>
+          <a
+            href="#/talepler"
+            className="group flex items-center gap-4 rounded-2xl bg-surface border border-control px-5 py-4 hover:bg-active transition-colors"
+          >
+            <span className="w-11 h-11 rounded-full bg-positive-bg text-positive flex items-center justify-center shrink-0">
+              <UserPlus className="w-5 h-5" />
+            </span>
+            <span className="min-w-0">
+              <span className="block text-base font-semibold">Müşteri talebi ekle</span>
+              <span className="block text-xs text-muted">
+                {requests.filter((r) => r.status === 'Açık').length} açık talep · uyan ilanlar otomatik eşleşir
+              </span>
+            </span>
+          </a>
+        </div>
+      )}
+
+      {/* Özet: üç sade kutu */}
+      <section aria-label="Özet" className="bg-surface rounded-xl grid grid-cols-3 [&>*]:p-3 divide-x divide-rule">
         <Kpi label="Aktif ilan" value={pending ? '—' : active.length} sub={`${active.length - activeRent} satılık · ${activeRent} kiralık`} />
-        <Kpi className="hidden lg:block" label="Bu ay eklenen" value={hasDates ? addedThisMonth : '—'} sub={hasDates ? 'Eklenme tarihine göre' : 'Tarih yeni ilanlardan itibaren tutulur'} />
-        <Kpi className="hidden lg:block" label="Bu ay satılan / kiralanan" value={hasDates ? soldThisMonth : '—'} sub={`Toplam ${soldTotal}`} />
-        <button
-          onClick={() => {
-            setQuick((q) => (q === 'teyitsiz' ? undefined : 'teyitsiz'));
-            setTab('Aktif');
-          }}
-          aria-pressed={quick === 'teyitsiz'}
-          className={`flex flex-col items-start justify-start text-left transition-colors hover:bg-active ${quick === 'teyitsiz' ? 'bg-active' : ''}`}
-        >
-          <Kpi label={`${staleDays}+ gün teyitsiz`} value={pending ? '—' : stale} sub={quick === 'teyitsiz' ? 'Yalnızca bunlar gösteriliyor' : 'Listede göstermek için tıklayın'} warn={stale > 0} />
-        </button>
+        <Kpi label="Bu ay eklenen" value={hasDates ? addedThisMonth : '—'} sub={`Bu ay satılan / kiralanan: ${hasDates ? soldThisMonth : '—'}`} />
         <a href="#/talepler" className="transition-colors hover:bg-active rounded-r-xl">
-          <Kpi label="Talebe uyan ilan" value={pending ? '—' : matchedListings} sub={`${requests.filter((r) => r.status === 'Açık').length} açık müşteri talebi`} />
+          <Kpi label="Talebe uyan ilan" value={pending ? '—' : matchedListings} sub="Eşleşmeleri görmek için tıklayın" />
         </a>
       </section>
 
@@ -247,7 +255,7 @@ export default function ListingList({ properties, requests, activity, scope, pre
         </div>
       </div>
 
-      {/* Filtre çubuğu */}
+      {/* Filtreler: tek satır; fiyat ve sıralama "Daha fazla" altında */}
       <div className="space-y-3">
         <div className="flex flex-wrap items-center gap-2">
           <div className="flex h-9 rounded-full bg-surface p-1" role="group" aria-label="Satılık veya kiralık">
@@ -263,33 +271,35 @@ export default function ListingList({ properties, requests, activity, scope, pre
             ))}
           </div>
           <label className="sr-only" htmlFor="kind">Cins</label>
-          <select id="kind" value={kind} onChange={(e) => setKind(e.target.value)} className="field h-9 !w-[150px] pr-8">
+          <select id="kind" value={kind} onChange={(e) => setKind(e.target.value)} className="field h-9 !w-[140px] pr-8">
             <option value="Hepsi">Tüm cinsler</option>
             {kinds.map((k) => (
               <option key={k} value={k}>{k}</option>
             ))}
           </select>
-          <label className="sr-only" htmlFor="min">En düşük fiyat</label>
-          <input id="min" inputMode="numeric" placeholder="En az ₺" value={minPrice} onChange={(e) => setMinPrice(e.target.value.replace(/[^0-9]/g, ''))} className="field h-9 !w-28 num" />
-          <label className="sr-only" htmlFor="max">En yüksek fiyat</label>
-          <input id="max" inputMode="numeric" placeholder="En çok ₺" value={maxPrice} onChange={(e) => setMaxPrice(e.target.value.replace(/[^0-9]/g, ''))} className="field h-9 !w-28 num" />
+          <label className="sr-only" htmlFor="region">Bölge</label>
+          <select id="region" value={region} onChange={(e) => setRegion(e.target.value)} className="field h-9 !w-[150px] pr-8">
+            {regionChips.map((r) => (
+              <option key={r} value={r}>{r === 'Hepsi' ? 'Tüm bölgeler' : r}</option>
+            ))}
+          </select>
+          <button
+            onClick={() => setMoreFilters((v) => !v)}
+            aria-expanded={moreFilters}
+            className={`h-9 px-3 rounded-full text-sm flex items-center gap-1.5 border transition-colors ${
+              moreFilters || minPrice || maxPrice || sort !== 'sheet' ? 'border-ink text-ink' : 'border-control text-muted hover:text-ink'
+            }`}
+          >
+            <SlidersHorizontal className="w-4 h-4" /> Fiyat ve sıralama
+          </button>
           {filtersOn && (
-            <button onClick={clearFilters} className="h-9 px-3 text-sm text-muted hover:text-ink underline underline-offset-2">
-              Filtreleri temizle
+            <button onClick={clearFilters} className="h-9 px-2 text-sm text-muted hover:text-ink underline underline-offset-2">
+              Temizle
             </button>
           )}
 
           <div className="flex items-center gap-2 ml-auto">
             <span className="text-sm text-muted num">{rows.length} ilan</span>
-            <label className="sr-only" htmlFor="sort">Sıralama</label>
-            <select id="sort" value={sort} onChange={(e) => setSort(e.target.value as Sort)} className="field h-9 !w-[210px] pr-8">
-              <option value="sheet">Sheets sırası</option>
-              <option value="newest">En yeni eklenen</option>
-              <option value="oldest-update">En uzun teyitsiz kalan</option>
-              <option value="price-asc">Fiyat: düşükten yükseğe</option>
-              <option value="price-desc">Fiyat: yüksekten düşüğe</option>
-              <option value="size-desc">Metrekare: büyükten küçüğe</option>
-            </select>
             <div className="hidden md:flex h-9 rounded-full bg-surface p-1" role="group" aria-label="Görünüm">
               <button onClick={() => update({ defaultView: 'list' })} aria-pressed={view === 'list'} aria-label="Liste görünümü" className={`w-9 rounded-full flex items-center justify-center ${view === 'list' ? 'bg-raised text-ink' : 'text-muted hover:text-ink'}`}>
                 <List className="w-4 h-4" />
@@ -301,28 +311,27 @@ export default function ListingList({ properties, requests, activity, scope, pre
           </div>
         </div>
 
-        <div className="flex flex-wrap gap-2" role="group" aria-label="Bölge">
-          {regionChips.map((r) => (
-            <button
-              key={r}
-              onClick={() => setRegion(r)}
-              aria-pressed={region === r}
-              className={`h-8 px-3 rounded-full text-sm whitespace-nowrap flex-none border transition-colors ${
-                region === r ? 'border-ink text-ink' : 'border-control text-muted hover:text-ink'
-              }`}
-            >
-              {r === 'Hepsi' ? 'Bütün bölgeler' : r}
-            </button>
-          ))}
-        </div>
+        {moreFilters && (
+          <div className="flex flex-wrap items-center gap-2 rounded-xl bg-surface p-3">
+            <label className="sr-only" htmlFor="min">En düşük fiyat</label>
+            <input id="min" inputMode="numeric" placeholder="En az ₺" value={minPrice} onChange={(e) => setMinPrice(e.target.value.replace(/[^0-9]/g, ''))} className="field h-9 !w-32 num" />
+            <span className="text-faint">–</span>
+            <label className="sr-only" htmlFor="max">En yüksek fiyat</label>
+            <input id="max" inputMode="numeric" placeholder="En çok ₺" value={maxPrice} onChange={(e) => setMaxPrice(e.target.value.replace(/[^0-9]/g, ''))} className="field h-9 !w-32 num" />
+            <label className="sr-only" htmlFor="sort">Sıralama</label>
+            <select id="sort" value={sort} onChange={(e) => setSort(e.target.value as Sort)} className="field h-9 !w-[210px] pr-8 sm:ml-auto">
+              <option value="sheet">Sıralama: varsayılan</option>
+              <option value="newest">En yeni eklenen</option>
+              <option value="oldest-update">En uzun teyitsiz kalan</option>
+              <option value="price-asc">Fiyat: düşükten yükseğe</option>
+              <option value="price-desc">Fiyat: yüksekten düşüğe</option>
+              <option value="size-desc">Metrekare: büyükten küçüğe</option>
+            </select>
+          </div>
+        )}
       </div>
 
       {/* İçerik */}
-      {!loading && scope !== 'favorites' && finding.length > 0 && (
-        <div className="rounded-lg bg-warning-bg px-3 py-2 text-sm text-warning">
-          {finding.join(', ')}.
-        </div>
-      )}
       {loadError ? (
         <div className="rounded-lg border border-dashed border-control px-4 py-3 text-muted flex flex-wrap items-center gap-3">
           <span>Google Sheets verileri yüklenemedi. İnternet bağlantısını veya tablonun yayın ayarını kontrol edin.</span>

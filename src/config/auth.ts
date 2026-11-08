@@ -5,8 +5,9 @@ export const OFFICE_AUTH_CONFIG = {
   
   // Sadece Yetkili 3 Özel Hesap
   allowedUsers: [
-    { email: "ilbey@palmiyeyatirim.com", name: "İlbey Faruk Nergiz" },
-    { email: "zahit@palmiyeyatirim.com", name: "Nureddin Zahit Arıduru" },
-    { email: "omer@palmiyeyatirim.com", name: "Ömer Nergiz" }
+    // phone: Danışman Paneli'ndeki Ara / WhatsApp butonları için
+    { email: "ilbey@palmiyeyatirim.com", name: "İlbey Faruk Nergiz", phone: "0535 014 77 69" },
+    { email: "zahit@palmiyeyatirim.com", name: "Nureddin Zahit Arıduru", phone: "0505 146 59 49" },
+    { email: "omer@palmiyeyatirim.com", name: "Ömer Nergiz", phone: "" }
   ]
 };

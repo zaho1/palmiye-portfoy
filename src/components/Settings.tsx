@@ -54,11 +54,6 @@ export default function Settings({ userName, userEmail, sync, onRefresh, onLogou
               <option value="grid">Galeri (fotoğraflı)</option>
             </select>
           </div>
-          <Toggle
-            label="Bölgeleri sol panelde göster"
-            checked={settings.sidebarRegions}
-            onChange={(v) => update({ sidebarRegions: v })}
-          />
         </div>
       </Row>
 
@@ -123,16 +118,6 @@ function Row({ title, hint, children }: { title: string; hint: string; children:
       </div>
       <div className="bg-surface rounded-xl p-5 space-y-4">{children}</div>
     </section>
-  );
-}
-
-function Toggle({ label, checked, onChange }: { label: string; checked: boolean; onChange: (v: boolean) => void }) {
-  return (
-    <label className="flex items-center justify-between gap-3 h-10 sm:mt-7 cursor-pointer">
-      <span className="text-sm font-medium">{label}</span>
-      <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} className="sr-only peer" />
-      <span className="relative w-9 h-5 rounded-full bg-control peer-checked:bg-positive transition-colors after:absolute after:top-0.5 after:left-0.5 after:w-4 after:h-4 after:rounded-full after:bg-white after:transition-transform peer-checked:after:translate-x-4 peer-focus-visible:outline-2 peer-focus-visible:outline-ink" aria-hidden="true" />
-    </label>
   );
 }
 

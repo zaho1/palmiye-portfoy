@@ -1,4 +1,4 @@
-// Google Apps Script for Palmiye Portföy (v2)
+// Google Apps Script for Palmiye Portföy (v3: ilanlar canlı okunur, not silme düzeltildi)
 // Bu script'i Google Sheets > Uzantılar > Apps Script altına yapıştırın.
 // Dağıt > Dağıtımları yönet > düzenle > "Yeni sürüm" seçip kaydedin (adres değişmez).
 // Erişim: "Herkes" (Anyone). İlk çalıştırmada Google izin isteyebilir.
@@ -96,6 +96,10 @@ function log_(who, action, title, detail) {
 
 function readSheet_(name) {
   var sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(name);
+  return readRows_(sh);
+}
+
+function readRows_(sh) {
   if (!sh || sh.getLastRow() < 2) return [];
   var values = sh.getDataRange().getDisplayValues();
   var headers = values[0];
@@ -174,27 +178,18 @@ function doPost(e) {
     }
 
     if (data.action === 'deleteNote') {
-      // Hareketler sayfasından notu bul ve sil
-      var sh = sheet_('Hareketler', ['Tarih', 'Kim', 'İşlem', 'İlan', 'Detay']);
-      var lastRow = sh.getLastRow();
-      var dataRange = sh.getDataRange();
-      var values = dataRange.getValues();
-
-      // Not ID'sini bul (Detay sütununda | ile ayrılmış) veya eski notları tarih + kim + detay ile eşleştir
+      // Hareketler sayfasından notu bulup satırı tamamen siler
+      sh = sheet_('Hareketler', ['Tarih', 'Kim', 'İşlem', 'İlan', 'Detay']);
+      var values = sh.getDataRange().getValues();
+      var key = String(data.noteId || '');
       for (var i = values.length - 1; i >= 1; i--) {
+        if (String(values[i][2]) !== 'Not') continue;
+        if (String(values[i][3]).trim() !== String(data.title).trim()) continue;
         var detail = String(values[i][4] || '');
-        var action = String(values[i][2] || '');
-        var rowTitle = String(values[i][3] || '');
-        var rowWho = String(values[i][1] || '');
-        var rowDate = String(values[i][0] || '');
-
-        // Yeni notlar: noteId ile eşleştir
-        if (detail.includes(data.noteId) && rowTitle === String(data.title)) {
-          sh.deleteRow(i + 1);
-          break;
-        }
-        // Eski notlar: action = Not, title eşleşir, detail eşleşir, who eşleşir
-        if (action === 'Not' && rowTitle === String(data.title) && detail === data.noteId && rowWho === who) {
+        var parts = detail.split('|');
+        var id = parts.length > 1 ? parts[parts.length - 1] : '';
+        var text = parts.length > 1 ? parts.slice(0, -1).join('|') : detail;
+        if ((id && id === key) || text === key) {
           sh.deleteRow(i + 1);
           break;
         }
@@ -248,6 +243,8 @@ function doPost(e) {
 function doGet(e) {
   var p = (e && e.parameter) || {};
   try {
+    // İlanlar canlı okunur: yayınlanmış CSV'nin birkaç dakikalık önbelleği yüzünden eklenen/silinen ilan gidip gelmesin
+    if (p.action === 'listings') return json_({ success: true, rows: readRows_(listingSheet_()) });
     if (p.action === 'requests') return json_({ success: true, rows: readSheet_('Talepler') });
     if (p.action === 'log') return json_({ success: true, rows: readSheet_('Hareketler').reverse().slice(0, 200) });
     if (p.action === 'owner') {

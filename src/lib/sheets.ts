@@ -103,52 +103,62 @@ function detectRegion(row: Record<string, string>): string {
   );
 }
 
-export function fetchProperties(): Promise<Property[]> {
+function rowToProperty(row: Record<string, string>, index: number): Property {
+  // Görseller ||| ile ayrılmış
+  const images = (row['Görsel URL'] || '').split('|||').map((s) => s.trim()).filter(Boolean);
+  return {
+    id: `PLM-${101 + index}`,
+    title: (row['İlan Başlığı'] || '').trim() || 'Başlıksız ilan',
+    price: row['Fiyat'] || '',
+    category: row['Kategori'] || 'Diğer',
+    imarStatus: row['İmar Durumu'] || '',
+    size: row['m²'] || '',
+    description: row['Açıklama'] || '',
+    imageUrl: images[0],
+    images,
+    sahibindenUrl: row['Sahibinden Linki'] || '',
+    adaParsel: row['Ada/Parsel'] || '',
+    agentName: row['Danışman Bilgileri'] || 'Palmiye Danışmanı',
+    agentPhone: row['Danışmanın Telefon Numarası'] || '',
+    whatsappUrl: row['WhatsApp Link'] || '',
+    status: (row['Durum'] || 'Aktif') as ListingStatus,
+    region: detectRegion(row),
+    neighborhood: row['Mahalle'] || '',
+    rooms: row['Oda Sayısı'] || '',
+    floor: row['Kat'] || '',
+    buildingAge: row['Bina Yaşı'] || '',
+    heating: row['Isınma'] || '',
+    features: (row['Özellikler'] || '').split(',').map((s) => s.trim()).filter(Boolean),
+    oldPrice: row['Eski Fiyat'] || '',
+    createdAt: parseDate(row['Eklenme Tarihi']),
+    updatedAt: parseDate(row['Son Güncelleme'] || row['Eklenme Tarihi']),
+    ...(parseLocation(row['Konum']) ?? {}),
+  };
+}
+
+// Yayınlanmış CSV (yedek yol): Google birkaç dakika önbellekte tutar
+function fetchPropertiesCsv(): Promise<Property[]> {
   return new Promise((resolve, reject) => {
-    Papa.parse(SHEET_CSV_URL, {
+    Papa.parse(`${SHEET_CSV_URL}&_=${Date.now()}`, {
       download: true,
       header: true,
       skipEmptyLines: true,
-      complete: (results) => {
-        const rows = results.data as Record<string, string>[];
-        resolve(
-          rows.map((row, index) => {
-            // Görseller ||| ile ayrılmış
-            const images = (row['Görsel URL'] || '').split('|||').map((s) => s.trim()).filter(Boolean);
-            return {
-              id: `PLM-${101 + index}`,
-              title: (row['İlan Başlığı'] || '').trim() || 'Başlıksız ilan',
-              price: row['Fiyat'] || '',
-              category: row['Kategori'] || 'Diğer',
-              imarStatus: row['İmar Durumu'] || '',
-              size: row['m²'] || '',
-              description: row['Açıklama'] || '',
-              imageUrl: images[0],
-              images,
-              sahibindenUrl: row['Sahibinden Linki'] || '',
-              adaParsel: row['Ada/Parsel'] || '',
-              agentName: row['Danışman Bilgileri'] || 'Palmiye Danışmanı',
-              agentPhone: row['Danışmanın Telefon Numarası'] || '',
-              whatsappUrl: row['WhatsApp Link'] || '',
-              status: (row['Durum'] || 'Aktif') as ListingStatus,
-              region: detectRegion(row),
-              neighborhood: row['Mahalle'] || '',
-              rooms: row['Oda Sayısı'] || '',
-              floor: row['Kat'] || '',
-              buildingAge: row['Bina Yaşı'] || '',
-              heating: row['Isınma'] || '',
-              features: (row['Özellikler'] || '').split(',').map((s) => s.trim()).filter(Boolean),
-              oldPrice: row['Eski Fiyat'] || '',
-              createdAt: parseDate(row['Eklenme Tarihi']),
-              updatedAt: parseDate(row['Son Güncelleme'] || row['Eklenme Tarihi']),
-              ...(parseLocation(row['Konum']) ?? {}),
-            };
-          }),
-        );
-      },
+      complete: (results) => resolve((results.data as Record<string, string>[]).map(rowToProperty)),
       error: (error) => reject(error),
     });
   });
+}
+
+// Önce Apps Script'ten canlı okunur (önbellek yok, eklenen/silinen anında görünür).
+// Script'in bu sürümü henüz yayınlanmadıysa CSV'ye düşer.
+export async function fetchProperties(): Promise<Property[]> {
+  try {
+    const { rows } = await get<{ rows?: Record<string, string>[] }>({ action: 'listings', _: String(Date.now()) });
+    if (rows) return rows.filter((r) => Object.entries(r).some(([k, v]) => k !== '_row' && String(v).trim())).map(rowToProperty);
+  } catch {
+    /* canlı okuma yoksa CSV */
+  }
+  return fetchPropertiesCsv();
 }
 
 // Apps Script GET cevabı CORS ile okunabilir (yalnızca v2 script yayınlandıysa vardır)

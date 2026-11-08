@@ -33,7 +33,7 @@ export interface DetailActions {
   touch: (p: Property) => void;
   price: (p: Property, price: string) => void;
   note: (p: Property, text: string) => void;
-  deleteNote: (p: Property, noteId: string) => void;
+  deleteNote: (p: Property, entry: ActivityEntry) => void;
   location: (p: Property, lat: number, lng: number) => void;
 }
 
@@ -357,7 +357,7 @@ export default function ListingDetail({ property: p, properties, presentMode, re
                       <div className="flex items-center gap-2">
                         {a.action === 'Not' && (a.who === userName || a.who === currentUser) && (
                           <button
-                            onClick={() => actions.deleteNote(p, a.detail || '')}
+                            onClick={() => actions.deleteNote(p, a)}
                             className="text-xs text-muted hover:text-negative transition-colors"
                           >
                             Sil

@@ -11,7 +11,7 @@ import MapView from './MapView';
 interface Props {
   properties: Property[];
   defaultAgentName: string;
-  onSaved: () => void;
+  onSaved: (listing: NewListing) => void;
 }
 
 const DEALS = ['Satılık', 'Kiralık'];
@@ -127,11 +127,9 @@ export default function AddListing({ properties, defaultAgentName, onSaved }: Pr
     setSubmitting(true);
     const { deal, kind, ...rest } = form;
     try {
-      await addListing(
-        { ...rest, category: `${deal} ${kind}`, features, images, rooms: isLand ? '' : form.rooms, location: location ? formatLocation(location.lat, location.lng) : '' },
-        owner.name || owner.phone ? owner : null,
-      );
-      onSaved();
+      const listing: NewListing = { ...rest, category: `${deal} ${kind}`, features, images, rooms: isLand ? '' : form.rooms, location: location ? formatLocation(location.lat, location.lng) : '' };
+      await addListing(listing, owner.name || owner.phone ? owner : null);
+      onSaved(listing);
     } catch (err) {
       console.error('İlan eklenirken hata:', err);
       setError("İlan Sheets'e gönderilemedi. İnternet bağlantısını kontrol edip tekrar deneyin.");

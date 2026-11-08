@@ -1,7 +1,7 @@
 import { useMemo, type ReactNode } from 'react';
 import { Globe, Heart, House, LogOut, Map as MapIcon, Moon, Plus, RefreshCw, Settings as SettingsIcon, Sun, UserRound, Users } from 'lucide-react';
 import type { Property } from '../types';
-import { REGIONS, isIncomplete, isRecent, isStale, priceDropped } from '../lib/sheets';
+import { isIncomplete, isRecent, isStale, priceDropped } from '../lib/sheets';
 import { useSettings } from '../lib/settings';
 
 export interface SyncState {
@@ -79,15 +79,6 @@ export default function Sidebar({ hash, properties, userName, userEmail, matched
           <Item href="#/?filtre=eksik" active={current === '?filtre=eksik'} label="Bilgisi eksik" count={c.incomplete} />
           <Item href="#/?filtre=indirim" active={current === '?filtre=indirim'} label="Fiyatı düşen" count={c.dropped} />
         </Group>
-
-        {settings.sidebarRegions && (
-          <Group label="Bölgeler">
-            {REGIONS.map((r) => {
-              const href = `#/?bolge=${encodeURIComponent(r)}`;
-              return <Item key={r} href={href} active={hash === href} label={r} count={c.regions[r] ?? 0} />;
-            })}
-          </Group>
-        )}
 
         <Group label="Bağlantılar">
           <a href="https://palmiyeyatirim.com/tr" target="_blank" rel="noreferrer" className="h-[34px] flex items-center gap-2.5 px-3 rounded-md text-sm text-nav hover:text-ink [&_svg]:w-4 [&_svg]:h-4">

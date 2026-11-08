@@ -10,15 +10,19 @@ import {
   fetchProperties,
   fetchRequests,
   formatLocation,
+  formatPhone,
+  phoneDigits,
   recordSale,
   setApiUser,
   setLocation,
   touchListing,
   updatePrice,
   updateStatus,
+  type NewListing,
   type NewRequest,
   type SaleRecord,
 } from './lib/sheets';
+import { cleanActivity, forgetPatch, mergeProperties, rememberAdd, rememberDeletedNote, rememberPatch } from './lib/pending';
 import { matchesFor } from './lib/match';
 import { OFFICE_AUTH_CONFIG } from './config/auth';
 import Login from './components/Login';
@@ -64,6 +68,39 @@ function parseHash(hash: string): Route {
       region: q.get('bolge') ?? undefined,
       quick: quick === 'teyitsiz' || quick === 'yeni' || quick === 'eksik' || quick === 'indirim' ? quick : undefined,
     },
+  };
+}
+
+// Yeni eklenen ilan Sheets'ten dönmeden listede hemen görünsün diye geçici kayıt
+function listingToProperty(l: NewListing, fallbackAgent: string): Property {
+  const loc = l.location.match(/(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)/);
+  return {
+    id: `YENİ-${Date.now().toString(36).toUpperCase()}`,
+    title: l.title.trim() || 'Başlıksız ilan',
+    price: l.price,
+    category: l.category,
+    imarStatus: l.imarStatus,
+    size: l.size,
+    description: l.description,
+    imageUrl: l.images[0],
+    images: l.images,
+    sahibindenUrl: l.sahibindenUrl,
+    adaParsel: l.adaParsel,
+    agentName: l.agentName || fallbackAgent,
+    agentPhone: l.agentPhone,
+    whatsappUrl: l.whatsappUrl,
+    status: 'Aktif',
+    region: l.region || 'Belirtilmemiş',
+    neighborhood: l.neighborhood,
+    rooms: l.rooms,
+    floor: l.floor,
+    buildingAge: l.buildingAge,
+    heating: l.heating,
+    features: l.features,
+    oldPrice: '',
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    ...(loc ? { lat: parseFloat(loc[1]), lng: parseFloat(loc[2]) } : {}),
   };
 }
 
@@ -124,7 +161,8 @@ export default function App() {
   const fetchAll = useCallback(() => {
     fetchProperties()
       .then((rows) => {
-        setProperties(rows);
+        // Sheets henüz işlemediyse cihazda bekleyen değişiklikler üstüne uygulanır (gidip gelme olmaz)
+        setProperties(mergeProperties(rows));
         setLoadedAt(new Date());
         setLoadError(false);
       })
@@ -137,7 +175,7 @@ export default function App() {
     Promise.all([fetchRequests(), fetchActivity()])
       .then(([reqs, log]) => {
         setRequests(reqs);
-        setActivity(log);
+        setActivity(cleanActivity(log));
         setV2Ready(true);
       })
       .catch((err) => {
@@ -154,6 +192,20 @@ export default function App() {
 
   useEffect(() => {
     if (currentUser) fetchAll();
+  }, [currentUser, fetchAll]);
+
+  // Diğer danışmanların değişiklikleri de gelsin: sekmeye dönünce ve 2 dakikada bir sessizce yenile
+  useEffect(() => {
+    if (!currentUser) return;
+    const onFocus = () => {
+      if (document.visibilityState === 'visible') fetchAll();
+    };
+    document.addEventListener('visibilitychange', onFocus);
+    const timer = window.setInterval(onFocus, 120_000);
+    return () => {
+      document.removeEventListener('visibilitychange', onFocus);
+      window.clearInterval(timer);
+    };
   }, [currentUser, fetchAll]);
 
   const handleLoginSuccess = (email: string, password: string, remember: boolean) => {
@@ -193,19 +245,29 @@ export default function App() {
   const write = useCallback(async (call: () => Promise<void>, rollback: () => void, what: string) => {
     try {
       await call();
+      // Sheets'e işlendikten sonra gerçek veriyle eşitle
+      window.setTimeout(fetchAll, 4000);
     } catch (error) {
       console.error('Google Sheets güncelleme hatası:', error);
       rollback();
       setToast({ message: `${what} Sheets'e yazılamadı. İnternet bağlantısını kontrol edip tekrar deneyin.` });
     }
-  }, []);
+  }, [fetchAll]);
 
   const applyStatus = useCallback(
     (p: Property, status: ListingStatus) => {
       const before = { status: p.status, updatedAt: p.updatedAt };
       patch(p.id, { status, updatedAt: new Date() });
+      rememberPatch(p.title, { status });
       logLocal(`Durum: ${status}`, p.title);
-      write(() => updateStatus(p.title, status), () => patch(p.id, before), p.id);
+      write(
+        () => updateStatus(p.title, status),
+        () => {
+          forgetPatch(p.title);
+          patch(p.id, before);
+        },
+        p.id,
+      );
     },
     [patch, logLocal, write],
   );
@@ -231,6 +293,7 @@ export default function App() {
       sold: (p: Property, sale: SaleRecord) => {
         const before = { status: p.status, updatedAt: p.updatedAt };
         patch(p.id, { status: 'Satıldı', updatedAt: new Date() });
+        rememberPatch(p.title, { status: 'Satıldı' });
         logLocal('Satıldı / kiralandı', p.title, [sale.price, sale.broughtBy].filter(Boolean).join(' · '));
         setToast({
           message: `${p.id} satış kaydı Sheets'e yazıldı.`,
@@ -239,7 +302,7 @@ export default function App() {
             setToast({ message: `${p.id} eski durumuna döndü. Satışlar sayfasındaki kaydı elle silin.` });
           },
         });
-        write(() => recordSale(p.title, sale), () => patch(p.id, before), p.id);
+        write(() => recordSale(p.title, sale), () => { forgetPatch(p.title); patch(p.id, before); }, p.id);
       },
       touch: (p: Property) => {
         const before = { updatedAt: p.updatedAt };
@@ -251,6 +314,7 @@ export default function App() {
       price: (p: Property, price: string) => {
         const before = { price: p.price, oldPrice: p.oldPrice, updatedAt: p.updatedAt };
         patch(p.id, { price, oldPrice: String(p.price), updatedAt: new Date() });
+        rememberPatch(p.title, { price });
         logLocal('Fiyat değişti', p.title, `${p.price} → ${price}`);
         setToast({ message: `${p.id} fiyatı güncellendi.` });
         write(() => updatePrice(p.title, price), () => patch(p.id, before), p.id);
@@ -259,13 +323,18 @@ export default function App() {
         logLocal('Not', p.title, text);
         write(() => addNote(p.title, text), () => setActivity((prev) => prev.slice(1)), 'Not');
       },
-      deleteNote: (p: Property, noteId: string) => {
-        setActivity((prev) => prev.filter((a) => !(a.action === 'Not' && a.title === p.title && a.detail === noteId)));
-        write(() => deleteNote(p.title, noteId), () => setToast({ message: 'Not silinemedi.' }), 'Not');
+      deleteNote: (p: Property, entry: ActivityEntry) => {
+        const key = entry.noteId || entry.detail;
+        rememberDeletedNote(p.title, key);
+        if (entry.detail) rememberDeletedNote(p.title, entry.detail);
+        setActivity((prev) => prev.filter((a) => a !== entry && !(a.action === 'Not' && a.title === p.title && (a.noteId ? a.noteId === entry.noteId : a.detail === entry.detail))));
+        setToast({ message: 'Not silindi.' });
+        write(() => deleteNote(p.title, key), () => setToast({ message: 'Not silinemedi.' }), 'Not');
       },
       location: (p: Property, lat: number, lng: number) => {
         const before = { lat: p.lat, lng: p.lng };
         patch(p.id, { lat, lng });
+        rememberPatch(p.title, { lat, lng });
         logLocal('Konum işaretlendi', p.title, formatLocation(lat, lng));
         setToast({ message: `${p.id} konumu kaydedildi.` });
         write(() => setLocation(p.title, formatLocation(lat, lng)), () => patch(p.id, before), p.id);
@@ -415,10 +484,14 @@ export default function App() {
             <AddListing
               properties={properties}
               defaultAgentName={userName}
-              onSaved={() => {
-                load();
+              onSaved={(l: NewListing) => {
+                const local = listingToProperty(l, userName);
+                rememberAdd(local);
+                setProperties((prev) => [...prev.filter((x) => x.title.trim() !== local.title.trim()), local]);
+                logLocal('İlan eklendi', local.title, String(local.price));
                 window.location.hash = '#/';
-                setToast({ message: "İlan Sheets'e gönderildi. Listede birkaç saniye içinde görünür; görünmezse Yenile'ye basın." });
+                setToast({ message: 'İlan eklendi.' });
+                window.setTimeout(fetchAll, 4000);
               }}
             />
           ) : route.name === 'requests' ? (
@@ -484,34 +557,39 @@ export default function App() {
                       .filter((user) => !agentSearch.trim() || user.name.toLocaleLowerCase('tr').includes(agentSearch.toLocaleLowerCase('tr')))
                       .map((user) => {
                       const agentCount = properties.filter(p => p.agentName === user.name && p.status === 'Aktif').length;
-                      const agentPhone = properties.find(p => p.agentName === user.name)?.agentPhone || '';
+                      const agentPhone = user.phone || properties.find(p => p.agentName === user.name && p.agentPhone)?.agentPhone || '';
+                      const digits = phoneDigits(agentPhone);
+                      const btn = 'flex-1 h-9 rounded-lg flex items-center justify-center gap-2 text-sm transition-colors';
                       return (
                         <div key={user.email} className="bg-surface rounded-xl p-4">
                           <div className="flex items-center gap-3 mb-3">
-                            <div className="w-10 h-10 bg-positive-bg rounded-full flex items-center justify-center">
+                            <div className="w-10 h-10 bg-positive-bg rounded-full flex items-center justify-center shrink-0">
                               <span className="text-positive font-bold">{user.name.charAt(0)}</span>
                             </div>
                             <div className="min-w-0 flex-1">
                               <p className="font-semibold truncate">{user.name}</p>
-                              <p className="text-xs text-muted truncate">{user.email}</p>
+                              <p className="text-xs text-muted truncate">{agentPhone ? formatPhone(agentPhone) : 'Telefon eklenmemiş'}</p>
+                            </div>
+                            <div className="text-right shrink-0">
+                              <p className="text-lg font-bold text-accent leading-none num">{agentCount}</p>
+                              <p className="text-[11px] text-muted mt-1">aktif ilan</p>
                             </div>
                           </div>
-                          <div className="flex items-center justify-between mb-3">
-                            <span className="text-sm text-muted">Aktif Portföy</span>
-                            <span className="text-lg font-bold text-accent">{agentCount}</span>
-                          </div>
-                          <div className="flex gap-2">
-                            {agentPhone && (
-                              <>
-                                <a href={`tel:${agentPhone.replace(/[^0-9+]/g, '')}`} className="flex-1 h-8 rounded-lg bg-raised flex items-center justify-center gap-2 text-sm text-muted hover:text-ink hover:bg-active transition-colors">
-                                  <Phone className="w-4 h-4" /> Ara
-                                </a>
-                                <a href={`https://wa.me/${agentPhone.replace(/[^0-9]/g, '')}`} target="_blank" rel="noreferrer" className="flex-1 h-8 rounded-lg bg-raised flex items-center justify-center gap-2 text-sm text-muted hover:text-ink hover:bg-active transition-colors">
-                                  <MessageCircle className="w-4 h-4" /> WhatsApp
-                                </a>
-                              </>
-                            )}
-                          </div>
+                          {digits ? (
+                            <div className="flex gap-2">
+                              <a href={`tel:+${digits}`} className={`${btn} bg-raised text-muted hover:text-ink hover:bg-active`}>
+                                <Phone className="w-4 h-4" /> Ara
+                              </a>
+                              <a href={`https://wa.me/${digits}`} target="_blank" rel="noreferrer" className={`${btn} bg-positive-bg text-positive hover:opacity-90`}>
+                                <MessageCircle className="w-4 h-4" /> WhatsApp
+                              </a>
+                            </div>
+                          ) : (
+                            <div className="flex gap-2" title="Numara src/config/auth.ts içine eklenince açılır">
+                              <span className={`${btn} bg-raised text-faint cursor-not-allowed`}><Phone className="w-4 h-4" /> Ara</span>
+                              <span className={`${btn} bg-raised text-faint cursor-not-allowed`}><MessageCircle className="w-4 h-4" /> WhatsApp</span>
+                            </div>
+                          )}
                         </div>
                       );
                     })}
