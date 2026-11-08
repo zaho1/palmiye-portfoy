@@ -298,11 +298,11 @@ var ADMIN_EMAILS = ['ilbey@palmiyeyatirim.com', 'zahit@palmiyeyatirim.com', 'ome
 
 function adminStats_() {
   var listings = readRows_(listingSheet_());
-  var dealOf = {};
-  listings.forEach(function (r) { dealOf[String(r['İlan Başlığı'] || '').trim()] = dealText(r); });
   // Satılık/kiralık bilgisi "Kategori" sütununda ("Kiralık Daire" gibi); "Tür" boş olabilir
   var dealText = function (r) { return String(r['Kategori'] || r['Tür'] || ''); };
   var isKiralik = function (t) { return lowerTr_(t).indexOf('kiral') >= 0; };
+  var dealOf = {};
+  listings.forEach(function (r) { dealOf[String(r['İlan Başlığı'] || '').trim()] = dealText(r); });
   var active = listings.filter(function (r) { return String(r['Durum'] || '').trim() === 'Aktif'; });
   var portfolio = { satilik: { count: 0, value: 0 }, kiralik: { count: 0, value: 0 } };
   active.forEach(function (r) {
