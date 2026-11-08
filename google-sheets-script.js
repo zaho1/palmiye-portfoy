@@ -129,7 +129,7 @@ function setCells_(sh, row, map, obj) {
   Object.keys(obj).forEach(function (k) {
     var cell = sh.getRange(row, map[k]);
     // Durum sütununda sadece Aktif/Pasif'e izin veren doğrulama var; Satıldı/Silindi yazılamıyor, işlem sessizce başarısız oluyordu
-    cell.clearDataValidations();
+    if (sh.getName() !== 'Danışmanlar') cell.clearDataValidations(); // Danışmanlar'daki Aktif açılır listesi korunur
     cell.setNumberFormat('@');
     cell.setValue(obj[k]);
   });
@@ -173,6 +173,15 @@ function silinenleriGizle() {
   });
   log_('sistem', 'Silinen ilanlar gizlendi', String(n), '');
   return n;
+}
+
+// Danışmanlar sayfasındaki "Aktif" sütununa Evet/Hayır açılır listesi koyar (Sheet'ten tek tıkla aktif/pasif). Bir kerelik çalıştırın.
+function aktifListesiniKur() {
+  var sh = sheet_('Danışmanlar', ADV_HEADERS);
+  var map = headerMap_(sh, ADV_HEADERS);
+  var rule = SpreadsheetApp.newDataValidation().requireValueInList(['Evet', 'Hayır'], true).setAllowInvalid(false).build();
+  sh.getRange(2, map['Aktif'], 500, 1).setDataValidation(rule);
+  return 'Aktif sütununa Evet/Hayır listesi eklendi.';
 }
 
 function readRows_(sh) {
