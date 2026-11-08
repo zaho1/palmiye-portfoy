@@ -10,7 +10,6 @@ import {
   clearActivityFeed,
   fetchActivity,
   fetchAdvisors,
-  fetchApiInfo,
   fetchProperties,
   fetchRequests,
   formatLocation,
@@ -20,7 +19,6 @@ import {
   setApiToken,
   setApiUser,
   setAuthFailureHandler,
-  setServerEnforced,
   setLocation,
   touchListing,
   updatePrice,
@@ -287,10 +285,9 @@ export default function App() {
     return () => setAuthFailureHandler(null);
   }, []);
 
-  // Zorunlu giriş açıksa herkese açık CSV yedeği kapanır; ofis rehberi (30-40 kişi) sunucudan gelir
+  // Ofis rehberi (30-40 kişi) sunucudan gelir
   useEffect(() => {
     if (!currentUser) return;
-    fetchApiInfo().then((i) => setServerEnforced(!!i?.enforced));
     // Rehber her girişte tazelenir (eski ortak şifreyle girenlerde de); yeni eklenen danışmanlar hemen görünür
     fetchAdvisors()
       .then((rows) => rows.length && directoryStore.set(rows))

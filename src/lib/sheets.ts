@@ -1,7 +1,5 @@
-import Papa from 'papaparse';
 import type { ActivityEntry, CustomerRequest, ListingStatus, OwnerInfo, Property } from '../types';
 
-const SHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTrZ9plOA7q5mwahYBk3pW9GdMIBeIORrfRWBKx1wVetpliFeVt_hId-aoaQncMst5mF42RSnCxzQZw/pub?output=csv';
 const SHEET_API_URL = 'https://script.google.com/macros/s/AKfycbxrz5C7MO9i1Xrer7fxclyAIV-UHNjJ1bCr99BkWaZ6fKmbi9FhUkpEHoSKZbFlP0kAUg/exec';
 
 export const REGIONS = ['Merkez', 'Çiftlikköy', 'Altınova', 'Çınarcık', 'Termal', 'Armutlu'];
@@ -51,12 +49,6 @@ export const getApiToken = () => apiToken;
 let onAuthFailure: (() => void) | null = null;
 export const setAuthFailureHandler = (fn: (() => void) | null) => {
   onAuthFailure = fn;
-};
-
-// Zorunlu giriş açıksa herkese açık CSV yedeği kullanılmaz (içindeki ilanlar da korunur)
-let serverEnforced = false;
-export const setServerEnforced = (v: boolean) => {
-  serverEnforced = v;
 };
 
 /* ---------- Tarih ---------- */
@@ -155,31 +147,13 @@ function rowToProperty(row: Record<string, string>, index: number): Property {
   };
 }
 
-// Yayınlanmış CSV (yedek yol): Google birkaç dakika önbellekte tutar
-function fetchPropertiesCsv(): Promise<Property[]> {
-  return new Promise((resolve, reject) => {
-    Papa.parse(`${SHEET_CSV_URL}&_=${Date.now()}`, {
-      download: true,
-      header: true,
-      skipEmptyLines: true,
-      complete: (results) => resolve((results.data as Record<string, string>[]).map(rowToProperty)),
-      error: (error) => reject(error),
-    });
-  });
-}
-
-// Önce Apps Script'ten canlı okunur (önbellek yok, eklenen/silinen anında görünür).
-// Script'in bu sürümü henüz yayınlanmadıysa CSV'ye düşer.
+// İlanlar Apps Script'ten canlı okunur (önbellek yok, eklenen/silinen anında görünür).
+// Eskiden yedek olarak yayınlanmış CSV kullanılıyordu; herkese açık olduğu için kaldırıldı.
 export async function fetchProperties(): Promise<Property[]> {
   cacheInfo.listingsAt = null;
-  try {
-    const { rows } = await get<{ rows?: Record<string, string>[] }>({ action: 'listings', _: String(Date.now()) });
-    if (rows) return rows.filter((r) => Object.entries(r).some(([k, v]) => k !== '_row' && String(v).trim())).map(rowToProperty);
-  } catch (err) {
-    if (err instanceof AuthError || serverEnforced || apiToken) throw err;
-    /* canlı okuma yoksa CSV */
-  }
-  return fetchPropertiesCsv();
+  const { rows } = await get<{ rows?: Record<string, string>[] }>({ action: 'listings', _: String(Date.now()) });
+  if (!rows) throw new Error('İlanlar okunamadı');
+  return rows.filter((r) => Object.entries(r).some(([k, v]) => k !== '_row' && String(v).trim())).map(rowToProperty);
 }
 
 // İnternet zayıf/yokken servis çalışanı (public/sw.js) en son görülen ilan listesini verir;
