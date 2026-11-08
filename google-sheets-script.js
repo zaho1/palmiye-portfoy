@@ -128,6 +128,8 @@ function findRowByTitle_(sh, map, title) {
 function setCells_(sh, row, map, obj) {
   Object.keys(obj).forEach(function (k) {
     var cell = sh.getRange(row, map[k]);
+    // Durum sütununda sadece Aktif/Pasif'e izin veren doğrulama var; Satıldı/Silindi yazılamıyor, işlem sessizce başarısız oluyordu
+    cell.clearDataValidations();
     cell.setNumberFormat('@');
     cell.setValue(obj[k]);
   });
