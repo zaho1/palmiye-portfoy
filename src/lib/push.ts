@@ -65,6 +65,14 @@ export function usePush() {
   }, []);
   useEffect(refresh, [refresh]);
 
+  // Telefonda izin açıkken kişisel hesapla giriş yapılmışsa kayıt sunucuya (yeniden) yazılır
+  useEffect(() => {
+    if (state !== 'on' || !getApiToken()) return;
+    currentSubscription()
+      .then((sub) => (sub ? register(sub, getNewsPref()) : undefined))
+      .catch(() => undefined);
+  }, [state]);
+
   const enable = useCallback(async () => {
     if (!getApiToken()) {
       setError('Bildirimler kişisel hesapla çalışır. Çıkış yapıp "İlk kez mi giriş yapıyorsunuz?" ile davet kodunuzla girin.');
