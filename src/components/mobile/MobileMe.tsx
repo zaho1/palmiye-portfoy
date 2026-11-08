@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Eye, EyeOff, Heart, Lock, LogOut, RefreshCw, Settings as SettingsIcon, UserRound, Users } from 'lucide-react';
 import type { Property } from '../../types';
-import { changePassword, fetchAdminStats, formatPhone, formatPrice, getApiToken, type AdminStats } from '../../lib/sheets';
+import { changePassword, fetchAdminStats, formatPhone, formatPrice, getApiToken, type AdminStats, type MonthRow } from '../../lib/sheets';
 import { personOf, useDirectory } from '../../lib/people';
 import { useSettings, type ThemeChoice } from '../../lib/settings';
 import type { SyncState } from '../Sidebar';
@@ -164,12 +164,27 @@ function AdminSummary() {
         <p className="text-[14px] text-muted">{failed ? 'Özet alınamadı. Apps Script güncellemesi yapılmış olmalı.' : 'Yükleniyor…'}</p>
       ) : (
         <>
-          <div className="grid grid-cols-2 gap-3">
-            <Tile label="Aktif ilan" value={String(stats.activeCount)} />
-            <Tile label="Portföy değeri" value={formatPrice(stats.portfolioValue)} />
-            <Tile label={`Bu ay satılan (${monthName})`} value={String(stats.soldMonthCount)} sub={stats.soldMonthValue ? formatPrice(stats.soldMonthValue) : undefined} />
-            <Tile label="Toplam satış" value={String(stats.soldTotalCount)} />
+          <div>
+            <p className="text-[13px] text-faint mb-2">Portföy</p>
+            <div className="grid grid-cols-2 gap-3">
+              <Tile label="Satılık ilan" value={String(stats.portfolio.satilik.count)} sub={formatPrice(stats.portfolio.satilik.value)} />
+              <Tile label="Kiralık ilan" value={String(stats.portfolio.kiralik.count)} sub={formatPrice(stats.portfolio.kiralik.value)} />
+            </div>
           </div>
+          <div>
+            <p className="text-[13px] text-faint mb-2">Bu ay ({monthName})</p>
+            <div className="grid grid-cols-2 gap-3">
+              <Tile label="Satılık satış" value={String(stats.current.satilikCount)} sub={stats.current.satilikValue ? formatPrice(stats.current.satilikValue) : undefined} />
+              <Tile label="Kiralık satış" value={String(stats.current.kiralikCount)} sub={stats.current.kiralikValue ? formatPrice(stats.current.kiralikValue) : undefined} />
+            </div>
+            <p className="text-[12px] text-faint mt-2 num">Toplam: {stats.soldTotal.satilik} satılık · {stats.soldTotal.kiralik} kiralık</p>
+          </div>
+
+          <div>
+            <p className="text-[13px] text-faint mb-1">Son 12 ay</p>
+            <TrendChart rows={stats.monthly} />
+          </div>
+
           {stats.byAdvisor.length > 0 && (
             <div>
               <p className="text-[13px] text-faint mb-1">Bu ay danışmanlara göre</p>
@@ -189,7 +204,7 @@ function AdminSummary() {
               <ul className="space-y-2">
                 {stats.monthSales.map((s, i) => (
                   <li key={i} className="text-[15px]">
-                    <p className="truncate">{s.title}</p>
+                    <p className="truncate">{s.title} <span className="text-[12px] text-faint">· {s.kiralik ? 'Kiralık' : 'Satılık'}</span></p>
                     <p className="text-[13px] text-faint num">{s.date}{s.broughtBy ? ` · ${s.broughtBy}` : ''}{s.price ? ` · ${formatPrice(s.price)}` : ''}</p>
                   </li>
                 ))}
@@ -199,6 +214,39 @@ function AdminSummary() {
         </>
       )}
     </section>
+  );
+}
+
+// Basit çizgi grafiği: satılık ve kiralık satış adedi, son 12 ay
+function TrendChart({ rows }: { rows: MonthRow[] }) {
+  const W = 320;
+  const H = 130;
+  const padL = 18;
+  const padR = 8;
+  const padT = 10;
+  const padB = 22;
+  const max = Math.max(1, ...rows.flatMap((r) => [r.satilikCount, r.kiralikCount]));
+  const x = (i: number) => padL + (i * (W - padL - padR)) / Math.max(1, rows.length - 1);
+  const y = (v: number) => padT + (1 - v / max) * (H - padT - padB);
+  const line = (key: 'satilikCount' | 'kiralikCount') => rows.map((r, i) => `${i === 0 ? 'M' : 'L'}${x(i).toFixed(1)},${y(r[key]).toFixed(1)}`).join(' ');
+  const label = (m: string) => new Date(`${m}-01T00:00:00`).toLocaleDateString('tr-TR', { month: 'short' });
+  return (
+    <div>
+      <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-auto" role="img" aria-label="Son 12 ay satış grafiği">
+        <line x1={padL} x2={W - padR} y1={y(0)} y2={y(0)} className="stroke-rule" strokeWidth="1" />
+        <line x1={padL} x2={W - padR} y1={y(max)} y2={y(max)} className="stroke-rule" strokeWidth="1" strokeDasharray="3 3" />
+        <text x={padL - 4} y={y(max) + 4} textAnchor="end" className="fill-faint" fontSize="9">{max}</text>
+        <path d={line('satilikCount')} fill="none" className="stroke-ink" strokeWidth="2" strokeLinejoin="round" />
+        <path d={line('kiralikCount')} fill="none" className="stroke-muted" strokeWidth="2" strokeDasharray="4 3" strokeLinejoin="round" />
+        {rows.map((r, i) => (
+          <text key={r.month} x={x(i)} y={H - 6} textAnchor="middle" className="fill-faint" fontSize="9">{(rows.length - 1 - i) % 2 === 0 ? label(r.month) : ''}</text>
+        ))}
+      </svg>
+      <div className="flex gap-4 text-[12px] text-muted mt-1">
+        <span className="flex items-center gap-1.5"><span className="w-4 h-0.5 bg-ink inline-block" /> Satılık</span>
+        <span className="flex items-center gap-1.5"><span className="w-4 border-t-2 border-dashed border-muted inline-block" /> Kiralık</span>
+      </div>
+    </div>
   );
 }
 

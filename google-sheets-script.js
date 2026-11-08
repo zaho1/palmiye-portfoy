@@ -278,35 +278,69 @@ function authed_(token) {
 var ADMIN_EMAILS = ['ilbey@palmiyeyatirim.com', 'zahit@palmiyeyatirim.com', 'omer@palmiyeyatirim.com'];
 
 function adminStats_() {
-  var month = Utilities.formatDate(new Date(), TZ, 'yyyy-MM');
   var listings = readRows_(listingSheet_());
+  var dealOf = {};
+  listings.forEach(function (r) { dealOf[String(r['İlan Başlığı'] || '').trim()] = String(r['Tür'] || '').trim(); });
+  var isKiralik = function (t) { return lowerTr_(t).indexOf('kiral') === 0; };
   var active = listings.filter(function (r) { return String(r['Durum'] || '').trim() === 'Aktif'; });
-  var portfolioValue = active.reduce(function (sum, r) { return sum + parsePrice_(r['Fiyat']); }, 0);
-  var sales = readSheet_('Satışlar');
-  var monthSales = sales.filter(function (r) { return String(r['Tarih'] || '').indexOf(month) === 0; });
+  var portfolio = { satilik: { count: 0, value: 0 }, kiralik: { count: 0, value: 0 } };
+  active.forEach(function (r) {
+    var b = isKiralik(r['Tür']) ? portfolio.kiralik : portfolio.satilik;
+    b.count++;
+    b.value += parsePrice_(r['Fiyat']);
+  });
+
+  var sales = readSheet_('Satışlar').map(function (r) {
+    var title = String(r['İlan'] || '').trim();
+    var deal = dealOf[title] !== undefined ? dealOf[title] : String(r['Tür'] || '');
+    return {
+      title: title,
+      date: String(r['Tarih'] || ''),
+      month: String(r['Tarih'] || '').slice(0, 7),
+      kiralik: isKiralik(deal),
+      price: parsePrice_(r['Gerçekleşen Fiyat']),
+      broughtBy: String(r['Getiren Danışman'] || '').trim(),
+    };
+  });
+
+  // Son 12 ay (eksik aylar sıfır)
+  var now = new Date();
+  var months = [];
+  for (var i = 11; i >= 0; i--) {
+    var d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    months.push(Utilities.formatDate(d, TZ, 'yyyy-MM'));
+  }
+  var monthly = months.map(function (m) {
+    var row = { month: m, satilikCount: 0, kiralikCount: 0, satilikValue: 0, kiralikValue: 0 };
+    sales.forEach(function (x) {
+      if (x.month !== m) return;
+      if (x.kiralik) { row.kiralikCount++; row.kiralikValue += x.price; }
+      else { row.satilikCount++; row.satilikValue += x.price; }
+    });
+    return row;
+  });
+  var current = monthly[monthly.length - 1];
   var byAdvisorMap = {};
-  var monthValue = 0;
-  monthSales.forEach(function (r) {
-    var name = String(r['Getiren Danışman'] || '').trim() || '—';
+  sales.forEach(function (x) {
+    if (x.month !== current.month) return;
+    var name = x.broughtBy || '—';
     byAdvisorMap[name] = byAdvisorMap[name] || { name: name, count: 0, value: 0 };
     byAdvisorMap[name].count++;
-    var price = parsePrice_(r['Gerçekleşen Fiyat']);
-    byAdvisorMap[name].value += price;
-    monthValue += price;
+    byAdvisorMap[name].value += x.price;
   });
   var byAdvisor = Object.keys(byAdvisorMap).map(function (k) { return byAdvisorMap[k]; })
     .sort(function (a, b) { return b.count - a.count || b.value - a.value; });
+
   return {
-    month: month,
-    activeCount: active.length,
-    portfolioValue: portfolioValue,
-    soldMonthCount: monthSales.length,
-    soldMonthValue: monthValue,
-    soldTotalCount: sales.length,
-    monthSales: monthSales.slice().reverse().map(function (r) {
-      return { title: r['İlan'] || '', date: r['Tarih'] || '', price: parsePrice_(r['Gerçekleşen Fiyat']), broughtBy: r['Getiren Danışman'] || '' };
-    }),
+    month: current.month,
+    portfolio: portfolio,
+    current: current,
+    soldTotal: { satilik: sales.filter(function (x) { return !x.kiralik; }).length, kiralik: sales.filter(function (x) { return x.kiralik; }).length },
+    monthly: monthly,
     byAdvisor: byAdvisor,
+    monthSales: sales.filter(function (x) { return x.month === current.month; }).reverse().map(function (x) {
+      return { title: x.title, date: x.date, kiralik: x.kiralik, price: x.price, broughtBy: x.broughtBy };
+    }),
   };
 }
 

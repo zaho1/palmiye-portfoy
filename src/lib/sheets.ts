@@ -265,15 +265,16 @@ export async function fetchAdvisors(): Promise<SessionUser[]> {
   return rows ?? [];
 }
 
+export type DealStat = { count: number; value: number };
+export type MonthRow = { month: string; satilikCount: number; kiralikCount: number; satilikValue: number; kiralikValue: number };
 export type AdminStats = {
   month: string;
-  activeCount: number;
-  portfolioValue: number;
-  soldMonthCount: number;
-  soldMonthValue: number;
-  soldTotalCount: number;
-  monthSales: { title: string; date: string; price: number; broughtBy: string }[];
+  portfolio: { satilik: DealStat; kiralik: DealStat };
+  current: MonthRow;
+  soldTotal: { satilik: number; kiralik: number };
+  monthly: MonthRow[];
   byAdvisor: { name: string; count: number; value: number }[];
+  monthSales: { title: string; date: string; kiralik: boolean; price: number; broughtBy: string }[];
 };
 // Sadece yöneticilere açık; yetkisiz hesaplarda null döner
 export async function fetchAdminStats(): Promise<AdminStats | null> {
