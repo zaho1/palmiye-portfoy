@@ -32,6 +32,7 @@ import {
 } from './lib/sheets';
 import { cleanActivity, forgetPatch, mergeProperties, rememberAdd, rememberDeletedNote, rememberPatch } from './lib/pending';
 import { matchesFor } from './lib/match';
+import { isAdmin, isHiddenPerson } from './lib/admin';
 import { directoryStore, personOf, useDirectory } from './lib/people';
 import { parseHash, type Route } from './lib/route';
 import { clearOfflineData, isMobileViewport, useIsMobile } from './lib/pwa';
@@ -110,7 +111,14 @@ export default function App() {
   const [profileName, setProfileName] = useState(() => readStored('palmiye_name') ?? '');
   const directory = useDirectory();
   const [properties, setProperties] = useState<Property[]>([]);
-  const [requests, setRequests] = useState<CustomerRequest[]>([]);
+  const [allRequests, setRequests] = useState<CustomerRequest[]>([]);
+  // Kapanan talepleri yalnızca yönetici hesapları görür
+  const requests = useMemo(() => (isAdmin(currentUser) ? allRequests : allRequests.filter((r) => r.status !== 'Kapandı')), [allRequests, currentUser]);
+  // Rehberde adı olmayan (ör. sitede danışman yazmayan) aktif ilanlar
+  const unassignedCount = useMemo(() => {
+    const names = new Set(directory.map((u) => u.name.toLocaleLowerCase('tr').trim()));
+    return properties.filter((p) => p.status === 'Aktif' && !names.has(p.agentName.toLocaleLowerCase('tr').trim())).length;
+  }, [directory, properties]);
   const [activity, setActivity] = useState<ActivityEntry[]>([]);
   const [v2Ready, setV2Ready] = useState(true);
   const [loading, setLoading] = useState(true);
@@ -302,7 +310,8 @@ export default function App() {
     } catch (error) {
       console.error('Google Sheets güncelleme hatası:', error);
       rollback();
-      setToast({ message: `${what} Sheets'e yazılamadı. İnternet bağlantısını kontrol edip tekrar deneyin.` });
+      const reason = error instanceof Error && error.message && !/Failed to fetch|NetworkError|Load failed/i.test(error.message) ? ` (${error.message})` : '';
+      setToast({ message: `${what} Sheets'e yazılamadı${reason}. İnternet bağlantısını kontrol edip tekrar deneyin.` });
     }
   }, [fetchAll]);
 
@@ -659,8 +668,9 @@ export default function App() {
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                     {directory
+                      .filter((user) => !isHiddenPerson(user.email))
                       .filter((user) => !agentSearch.trim() || user.name.toLocaleLowerCase('tr').includes(agentSearch.toLocaleLowerCase('tr')))
-                      .map((user) => ({ user, agentCount: properties.filter((p) => p.agentName === user.name && p.status === 'Aktif').length }))
+                      .map((user) => ({ user, agentCount: properties.filter((p) => p.agentName.toLocaleLowerCase('tr').trim() === user.name.toLocaleLowerCase('tr').trim() && p.status === 'Aktif').length }))
                       .sort((a, b) => b.agentCount - a.agentCount || a.user.name.localeCompare(b.user.name, 'tr'))
                       .map(({ user, agentCount }) => {
                       const agentPhone = user.phone || properties.find(p => p.agentName === user.name && p.agentPhone)?.agentPhone || '';
@@ -700,6 +710,9 @@ export default function App() {
                       );
                     })}
                   </div>
+                  {unassignedCount > 0 && !agentSearch.trim() && (
+                    <p className="mt-4 text-sm text-muted num">Danışman atanmamış ofis ilanı: {unassignedCount} aktif ilan</p>
+                  )}
                 </div>
               )}
             </>

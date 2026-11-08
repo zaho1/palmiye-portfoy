@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { MessageCircle, Phone, Search } from 'lucide-react';
 import type { Property } from '../../types';
 import { formatPhone, phoneDigits } from '../../lib/sheets';
+import { isHiddenPerson } from '../../lib/admin';
 import { useDirectory } from '../../lib/people';
 import { ChevronRightIcon } from './icons';
 
@@ -21,7 +22,8 @@ const initials = (name: string) =>
 
 // Ofis rehberi: herkes, aktif ilan sayısı, tek dokunuşla arama ve WhatsApp
 export default function MobileTeam({ properties, userEmail }: Props) {
-  const directory = useDirectory();
+  const everyone = useDirectory();
+  const directory = useMemo(() => everyone.filter((u) => !isHiddenPerson(u.email)), [everyone]);
   const [q, setQ] = useState('');
 
   const counts = useMemo(() => {
@@ -33,6 +35,14 @@ export default function MobileTeam({ properties, userEmail }: Props) {
     });
     return m;
   }, [properties]);
+
+  // Rehberde adı olmayan ilanlar (ör. sitede danışman yazmayan "Palmiye Yatırım" ilanları)
+  const unassigned = useMemo(() => {
+    const names = new Set(everyone.map((u) => u.name.toLocaleLowerCase('tr').trim()));
+    let n = 0;
+    counts.forEach((c, k) => { if (!names.has(k)) n += c; });
+    return n;
+  }, [counts, everyone]);
 
   const people = useMemo(() => {
     const key = q.toLocaleLowerCase('tr').trim();
@@ -103,6 +113,15 @@ export default function MobileTeam({ properties, userEmail }: Props) {
           );
         })}
         {!people.length && <p className="px-4 py-6 text-center text-muted">Bu aramayla eşleşen danışman yok.</p>}
+        {unassigned > 0 && !q.trim() && (
+          <div className="min-h-14 px-4 py-2 flex items-center gap-3 text-muted">
+            <span className="w-11 h-11 rounded-full bg-raised flex items-center justify-center text-[15px] font-semibold shrink-0" aria-hidden="true">PY</span>
+            <span className="flex-1 min-w-0">
+              <span className="block text-[16px] font-medium truncate text-ink">Ofis (danışman atanmamış)</span>
+              <span className="block text-[13px] num">{unassigned} aktif ilan</span>
+            </span>
+          </div>
+        )}
       </section>
     </div>
   );

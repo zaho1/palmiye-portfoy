@@ -342,13 +342,10 @@ export async function fetchOwner(title: string, key: string): Promise<OwnerInfo 
 /* ---------- Yazma ---------- */
 
 // Apps Script CORS cevabı okunamadığı için istek no-cors gider; sonuç ancak yenilemede görülür.
+// Sunucunun cevabı okunur: ilan bulunamadı / yetki yok gibi redler sessizce kaybolmasın
 async function post(body: Record<string, unknown>) {
-  await fetch(SHEET_API_URL, {
-    method: 'POST',
-    mode: 'no-cors',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ ...body, token: apiToken, user: apiUser }),
-  });
+  const res = await postRead<{ success?: boolean; message?: string }>(body);
+  if (res && res.success === false) throw new Error(res.message || 'Sunucu işlemi kabul etmedi');
 }
 
 export const updateStatus = (title: string, status: ListingStatus) => post({ action: 'updateStatus', title, status });

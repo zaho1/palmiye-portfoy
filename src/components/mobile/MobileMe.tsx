@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Eye, EyeOff, Heart, Lock, LogOut, RefreshCw, Settings as SettingsIcon, UserRound, Users } from 'lucide-react';
 import type { Property } from '../../types';
 import { changePassword, fetchAdminStats, formatPhone, formatPrice, getApiToken, type AdminStats, type MonthRow } from '../../lib/sheets';
+import { isAdmin as isAdminEmail, isHiddenPerson } from '../../lib/admin';
 import { personOf, useDirectory } from '../../lib/people';
 import { useSettings, type ThemeChoice } from '../../lib/settings';
 import type { SyncState } from '../Sidebar';
@@ -20,9 +21,6 @@ interface Props {
   onRefresh: () => void;
   onLogout: () => void;
 }
-
-// Yönetici hesapları: "Ben" sekmesinde portföy ve satış özeti görürler (sunucu da aynı listeyi kontrol eder)
-const ADMIN_EMAILS = ['ilbey@palmiyeyatirim.com', 'zahit@palmiyeyatirim.com', 'omer@palmiyeyatirim.com'];
 
 const THEME_LABEL: Record<ThemeChoice, string> = { dark: 'Koyu', light: 'Açık', system: 'Cihaza göre' };
 const THEME_BY_LABEL: Record<string, ThemeChoice> = { Koyu: 'dark', Açık: 'light', 'Cihaza göre': 'system' };
@@ -57,7 +55,7 @@ export default function MobileMe({ properties, userName, userEmail, sync, presen
     }),
     [properties, key, favorites],
   );
-  const isAdmin = ADMIN_EMAILS.includes(userEmail.trim().toLowerCase());
+  const isAdmin = isAdminEmail(userEmail);
   const phone = settings.phone || personOf(userEmail)?.phone || '';
   const loadedText = sync.loadedAt ? sync.loadedAt.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' }) : '—';
   const status = sync.error ? 'Sheets okunamadı' : !sync.v2Ready ? 'İlanlar bağlı · Apps Script v2 bekleniyor' : 'Google Sheets bağlı';
@@ -85,7 +83,7 @@ export default function MobileMe({ properties, userName, userEmail, sync, presen
       <section className="bg-surface rounded-2xl overflow-hidden">
         <Row href="#/benim" icon={<UserRound />} label="Benim ilanlarım" value={String(counts.mine)} />
         <Row href="#/favoriler" icon={<Heart />} label="Favorilerim" value={String(counts.favorites)} />
-        <Row href="#/danismanlar" icon={<Users />} label="Danışmanlar" value={String(directory.length)} />
+        <Row href="#/danismanlar" icon={<Users />} label="Danışmanlar" value={String(directory.filter((u) => !isHiddenPerson(u.email)).length)} />
         <Row href="#/ayarlar" icon={<SettingsIcon />} label="Ayarlar" />
         {getApiToken() && <Row onClick={() => setPwOpen(true)} icon={<Lock />} label="Şifremi değiştir" />}
       </section>

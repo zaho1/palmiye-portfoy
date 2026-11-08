@@ -143,6 +143,22 @@ function readSheet_(name) {
   return readRows_(sh);
 }
 
+// Başlangıçtaki iki geçici ilanı (Site Linki ve Eklenme Tarihi boş olanlar) Silindi yapıp gizler. Bir kerelik.
+function geciciIlanlariSil() {
+  var sh = listingSheet_();
+  var map = headerMap_(sh, ['Durum', 'Son Güncelleme', 'Site Linki', 'Eklenme Tarihi']);
+  var n = 0;
+  readRows_(sh).forEach(function (r) {
+    if (!String(r['İlan Başlığı'] || '').trim()) return;
+    if (String(r['Site Linki'] || '').trim() || String(r['Eklenme Tarihi'] || '').trim()) return;
+    setCells_(sh, r._row, map, { 'Durum': 'Silindi', 'Son Güncelleme': now_() });
+    sh.hideRows(r._row);
+    n++;
+    log_('sistem', 'Geçici ilan silindi', r['İlan Başlığı'], '');
+  });
+  return n;
+}
+
 // Uygulamadan silinen (Durum = Silindi) ilanların satırlarını İlanlarım sayfasında gizler.
 // Satır silinmez: satır sırasına bağlı ilan ID'leri kaymasın diye. Bir kerelik çalıştırmak yeterli.
 function silinenleriGizle() {
@@ -947,7 +963,11 @@ function doGet(e) {
     }
     // İlanlar canlı okunur: yayınlanmış CSV'nin birkaç dakikalık önbelleği yüzünden eklenen/silinen ilan gidip gelmesin
     if (p.action === 'listings') return json_({ success: true, rows: readRows_(listingSheet_()) });
-    if (p.action === 'requests') return json_({ success: true, rows: readSheet_('Talepler') });
+    if (p.action === 'requests') {
+      // Kapanan talepleri yalnızca yönetici hesapları görür
+      var canSeeClosed = !!g.advisor && ADMIN_EMAILS.indexOf(g.advisor.email) !== -1;
+      return json_({ success: true, rows: readSheet_('Talepler').filter(function (r) { return canSeeClosed || String(r['Durum'] || '').trim() !== 'Kapandı'; }) });
+    }
     if (p.action === 'log') return json_({ success: true, rows: readSheet_('Hareketler').reverse().slice(0, 200) });
     // Yönetici özeti: sadece yöneticiler (portföy değeri, bu ay satılanlar, danışman dağılımı)
     if (p.action === 'stats') {
