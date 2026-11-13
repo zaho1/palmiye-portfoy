@@ -62,7 +62,7 @@ export default function MobileRequests({ requests, properties, userName, ready, 
 
       {!ready && (
         <p className="mx-4 mt-3 rounded-xl bg-warning-bg px-4 py-3 text-[14px] text-warning">
-          Talepler okunamadı. Ofis yöneticisi Apps Script'in yeni sürümünü yayınlayınca açılır.
+          Talepler şu an yüklenemedi. İnternet bağlantınızı kontrol edip sayfayı yenileyin.
         </p>
       )}
 

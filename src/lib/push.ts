@@ -36,11 +36,12 @@ const deviceName = () => {
   return p === 'ios' ? 'iPhone' : p === 'android' ? 'Android' : 'Bilgisayar';
 };
 
+// Ofis haberleri (yeni ilan, satış) varsayılan olarak açık; yalnızca kişi kapatırsa kapalı kalır
 export const getNewsPref = (): boolean => {
   try {
-    return localStorage.getItem(NEWS_KEY) === '1';
+    return localStorage.getItem(NEWS_KEY) !== '0';
   } catch {
-    return false;
+    return true;
   }
 };
 

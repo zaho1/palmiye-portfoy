@@ -4,6 +4,7 @@ import { useSettings, type ThemeChoice } from '../lib/settings';
 import type { SyncState } from './Sidebar';
 import { btnSecondary } from './Dialog';
 import { isAdmin } from '../lib/admin';
+import { openOnboarding } from './Onboarding';
 
 interface Props {
   userName: string;
@@ -80,7 +81,7 @@ export default function Settings({ userName, userEmail, sync, onRefresh, onLogou
             <input id="s-phone" type="tel" inputMode="tel" placeholder="0555 123 45 67" value={settings.phone} onChange={(e) => update({ phone: e.target.value })} className="field num" />
           </div>
         </div>
-        <p className="text-xs text-faint">Ad ve e-posta ofis hesap listesinden gelir (src/config/auth.ts); değişiklik için ofis yöneticisine yazın.</p>
+        <p className="text-xs text-faint">Ad ve e-posta ofis hesabınızdan gelir; değiştirmek için yöneticiye yazın.</p>
       </Row>
 
       <Row title="Müşteriye gönderilen metin" hint="“Müşteriye gönder” ve broşürün son satırı. Ada/parsel ve ofis içi bilgiler bu metne hiçbir zaman eklenmez.">
@@ -105,6 +106,10 @@ export default function Settings({ userName, userEmail, sync, onRefresh, onLogou
         <button onClick={onRefresh} className={btnSecondary}>Şimdi eşitle</button>
       </Row>
       )}
+
+      <Row title="Yardım" hint="Uygulamanın kısa tanıtımı: ilan ekleme, paylaşma, talepler, emsal ve bildirimler.">
+        <button onClick={openOnboarding} className={btnSecondary}>Nasıl kullanılır</button>
+      </Row>
 
       <Row title="Oturum" hint="Bu cihazdaki ayarları varsayılana döndürebilir veya oturumu kapatabilirsiniz.">
         <div className="flex flex-wrap gap-2">

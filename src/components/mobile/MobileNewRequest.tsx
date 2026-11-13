@@ -195,7 +195,7 @@ export default function MobileNewRequest({ properties, defaultAgentName, ready, 
           <p className="text-[14px] text-muted mb-2 num">Şu an <b className="text-ink">{preview}</b> ilan uyuyor</p>
         )}
         <button type="submit" disabled={!ready} className={`${btnBig} w-full`}>Talebi kaydet</button>
-        {!ready && <p className="text-[13px] text-warning mt-2">Talepler Apps Script yeni sürümü yayınlanınca kaydedilir.</p>}
+        {!ready && <p className="text-[13px] text-warning mt-2">Talepler şu an kaydedilemiyor. İnternet bağlantınızı kontrol edip yenileyin.</p>}
       </div>
     </form>
   );

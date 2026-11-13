@@ -119,7 +119,7 @@ export default function CompsPage({ property: p, properties, currentUser, userNa
           <span className="text-sm text-muted num">{manual.length}</span>
         </div>
         {state === 'error' ? (
-          <p className="mt-2 text-sm text-muted">Emsaller okunamadı. Apps Script'in yeni sürümü yayınlanınca açılır.</p>
+          <p className="mt-2 text-sm text-muted">Emsaller şu an yüklenemedi. İnternet bağlantınızı kontrol edip biraz sonra tekrar deneyin.</p>
         ) : manual.length === 0 ? (
           <p className="mt-2 text-sm text-muted">Bu kategoride henüz emsal girilmemiş.</p>
         ) : (

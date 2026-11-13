@@ -101,7 +101,7 @@ export default function Requests({ requests, properties, defaultAgentName, ready
             <span className="text-sm text-muted num">Şu an {preview} ilan uyuyor</span>
             <button type="submit" disabled={!ready} className={`${btnPrimary} disabled:opacity-60`}>Talebi kaydet</button>
           </div>
-          {!ready && <p className="text-xs text-warning">Talepler Apps Script v2 yayınlanınca kaydedilir.</p>}
+          {!ready && <p className="text-xs text-warning">Talepler şu an kaydedilemiyor. İnternet bağlantınızı kontrol edip sayfayı yenileyin.</p>}
         </form>
 
         <section aria-label="Açık talepler" className="space-y-[14px] min-w-0">

@@ -163,7 +163,7 @@ export default function MobileApp(p: MobileAppProps) {
   const selected = objectId ? p.properties.find((x) => x.id === objectId) : undefined;
   const notFound = (
     <div className="mx-4 mt-4 rounded-2xl border border-dashed border-control px-4 py-4 text-muted">
-      {objectId} numaralı ilan bulunamadı. Sheets'te satır silinmiş ya da sırası değişmiş olabilir.{' '}
+      {objectId} numaralı ilan bulunamadı. İlan kaldırılmış olabilir.{' '}
       <a href="#/" className="text-ink underline underline-offset-2">İlanlara dön</a>
     </div>
   );

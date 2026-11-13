@@ -140,7 +140,7 @@ export default function AddListing({ properties, defaultAgentName, onSaved }: Pr
       <div className="min-w-0">
       <div className="mb-8">
         <h1 className="text-xl font-semibold">Yeni ilan</h1>
-        <p className="text-muted mt-1">Kaydedince ilan Google Sheets'e yazılır ve bütün ofisin portföyünde görünür.</p>
+        <p className="text-muted mt-1">Kaydedince ilan bütün ofisin portföyünde görünür. Fotoğraf şart değil, sonra “Düzenle” ile eklenebilir.</p>
       </div>
 
       <Section title="İlan" hint="Başlıkta konum, oda sayısı ve öne çıkan özellik olsun: “Altınova Kaytazdere sıfır 2+1 daire”.">

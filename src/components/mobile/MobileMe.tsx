@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
-import { Eye, EyeOff, Heart, Lock, LogOut, MessageSquarePlus, RefreshCw, Settings as SettingsIcon, UserRound, Users } from 'lucide-react';
+import { Eye, EyeOff, Heart, Lightbulb, Lock, LogOut, MessageSquarePlus, RefreshCw, Settings as SettingsIcon, UserRound, Users } from 'lucide-react';
 import type { Property } from '../../types';
 import { changePassword, fetchAdminStats, formatPhone, formatPrice, getApiToken, sendFeedback, type AdminStats, type FeedbackKind, type MonthRow } from '../../lib/sheets';
 import { isAdmin as isAdminEmail, isHiddenPerson } from '../../lib/admin';
@@ -8,6 +8,7 @@ import { useSettings, type ThemeChoice } from '../../lib/settings';
 import type { SyncState } from '../Sidebar';
 import { InstallCard } from './InstallApp';
 import { PushSettings } from './NotificationsCard';
+import { openOnboarding } from '../Onboarding';
 import { MField, Segmented, Sheet, btnBig, btnBigDanger, btnBigSecondary } from './controls';
 import { ChevronRightIcon } from './icons';
 
@@ -86,6 +87,7 @@ export default function MobileMe({ properties, userName, userEmail, sync, presen
         <Row href="#/favoriler" icon={<Heart />} label="Favorilerim" value={String(counts.favorites)} />
         <Row href="#/danismanlar" icon={<Users />} label="Danışmanlar" value={String(directory.filter((u) => !isHiddenPerson(u.email)).length)} />
         <Row href="#/ayarlar" icon={<SettingsIcon />} label="Ayarlar" />
+        <Row onClick={openOnboarding} icon={<Lightbulb />} label="Nasıl kullanılır" />
         <Row onClick={() => setFbOpen(true)} icon={<MessageSquarePlus />} label="Geri bildirim yaz" />
         {getApiToken() && <Row onClick={() => setPwOpen(true)} icon={<Lock />} label="Şifremi değiştir" />}
       </section>
@@ -230,7 +232,7 @@ function AdminSummary() {
         </button>
       </div>
       {!stats ? (
-        <p className="text-[14px] text-muted">{failed ? 'Özet alınamadı. Apps Script güncellemesi yapılmış olmalı.' : 'Yükleniyor…'}</p>
+        <p className="text-[14px] text-muted">{failed ? 'Özet şu an yüklenemedi. Sayfayı yenileyip tekrar deneyin.' : 'Yükleniyor…'}</p>
       ) : (
         <>
           <div>

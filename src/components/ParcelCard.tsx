@@ -163,7 +163,7 @@ function ParcelDialog({ value, onClose, onSave }: { value: ParcelFields; onClose
           <textarea id="pa-note" rows={3} placeholder="Çekme mesafeleri, yola terk, plan notları…" value={f.imarNote} onChange={set('imarNote')} className="field h-auto py-2" />
         </div>
       </div>
-      <p className="mt-3 text-sm">Bilgiler Sheet'te ilanın satırına yazılır. Ada/parsel müşteriye giden metinde ve broşürde görünmez.</p>
+      <p className="mt-3 text-sm">Bilgiler ilana kaydedilir. Ada/parsel müşteriye giden metinde ve broşürde görünmez.</p>
     </Dialog>
   );
 }

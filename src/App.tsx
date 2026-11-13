@@ -51,6 +51,7 @@ import EditListing from './components/EditListing';
 import Sidebar, { type SyncState } from './components/Sidebar';
 import Notifications from './components/Notifications';
 import Toast, { type ToastState } from './components/Toast';
+import Onboarding from './components/Onboarding';
 import OfflineBanner from './components/OfflineBanner';
 import MobileApp from './components/mobile/MobileApp';
 
@@ -318,7 +319,7 @@ export default function App() {
       console.error('Google Sheets güncelleme hatası:', error);
       rollback();
       const reason = error instanceof Error && error.message && !/Failed to fetch|NetworkError|Load failed/i.test(error.message) ? ` (${error.message})` : '';
-      setToast({ message: `${what} Sheets'e yazılamadı${reason}. İnternet bağlantısını kontrol edip tekrar deneyin.` });
+      setToast({ message: `${what} kaydedilemedi${reason}. İnternet bağlantınızı kontrol edip tekrar deneyin.` });
     }
   }, [fetchAll]);
 
@@ -364,7 +365,7 @@ export default function App() {
         rememberPatch(p.title, { status: 'Satıldı' });
         logLocal('Satıldı / kiralandı', p.title, [sale.price, sale.broughtBy].filter(Boolean).join(' · '));
         setToast({
-          message: `${p.id} satış kaydı Sheets'e yazıldı.`,
+          message: `${p.id} satış kaydedildi.`,
           undo: () => {
             applyStatus({ ...p, status: 'Satıldı' }, before.status);
             setToast({ message: `${p.id} eski durumuna döndü. Satışlar sayfasındaki kaydı elle silin.` });
@@ -544,6 +545,7 @@ export default function App() {
           notify={(message) => setToast({ message })}
         />
         {toast && <Toast toast={toast} onClose={() => setToast(null)} />}
+        <Onboarding />
       </>
     );
   }
@@ -586,7 +588,7 @@ export default function App() {
 
   const notFound = (
     <div className="rounded-lg border border-dashed border-control px-4 py-3 text-muted">
-      {objectId} numaralı ilan bulunamadı. Sheets'te satır silinmiş ya da sırası değişmiş olabilir.{' '}
+      {objectId} numaralı ilan bulunamadı. İlan kaldırılmış olabilir.{' '}
       <a href="#/" className="text-ink underline underline-offset-2">Portföye dön</a>
     </div>
   );
@@ -640,7 +642,7 @@ export default function App() {
           <OfflineBanner staleAt={staleAt} />
           {!v2Ready && route.name === 'requests' && (
             <p className="mb-6 rounded-lg bg-warning-bg px-4 py-3 text-sm text-warning">
-              Talepler, hareket geçmişi ve ofis içi bilgiler, ofis yöneticisi Google Sheets'teki Apps Script'in yeni sürümünü yayınlayınca açılır. İlanlar normal çalışıyor.
+              Talepler şu an yüklenemedi. İnternet bağlantınızı kontrol edip sayfayı yenileyin. İlanlar normal çalışıyor.
             </p>
           )}
 
@@ -755,7 +757,7 @@ export default function App() {
                               </a>
                             </div>
                           ) : (
-                            <div className="flex gap-2" title="Numara src/config/auth.ts içine eklenince açılır">
+                            <div className="flex gap-2" title="Telefon numarası girilmemiş">
                               <span className={`${btn} bg-raised text-faint cursor-not-allowed`}><Phone className="w-4 h-4" /> Ara</span>
                               <span className={`${btn} bg-raised text-faint cursor-not-allowed`}><MessageCircle className="w-4 h-4" /> WhatsApp</span>
                             </div>
@@ -785,6 +787,7 @@ export default function App() {
       )}
 
       {toast && <Toast toast={toast} onClose={() => setToast(null)} />}
+        <Onboarding />
     </div>
   );
 }

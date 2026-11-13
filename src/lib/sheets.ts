@@ -182,7 +182,7 @@ async function get<T>(params: Record<string, string>): Promise<T> {
       onAuthFailure?.();
       throw new AuthError(body.message || 'Oturum gerekli');
     }
-    throw new Error(body.message || 'Apps Script hatası');
+    throw new Error(body.message || 'Sunucu hatası');
   }
   return body as T;
 }
@@ -291,7 +291,7 @@ export const setAdvisorActive = (email: string, active: boolean) =>
 
 export async function fetchRequests(): Promise<CustomerRequest[]> {
   const { rows } = await get<{ rows?: Record<string, string>[] }>({ action: 'requests' });
-  if (!rows) throw new Error("Apps Script v2 yayınlanmamış");
+  if (!rows) throw new Error("Veri okunamadı");
   return rows.map((r) => ({
     id: r['Talep No'] || '',
     createdAt: parseDate(r['Tarih']),
@@ -378,7 +378,7 @@ export const setParcel = (title: string, f: ParcelFields) =>
 
 export async function fetchActivity(): Promise<ActivityEntry[]> {
   const { rows } = await get<{ rows?: Record<string, string>[] }>({ action: 'log' });
-  if (!rows) throw new Error("Apps Script v2 yayınlanmamış");
+  if (!rows) throw new Error("Veri okunamadı");
   return rows.map((r) => {
     // Detay sütununda noteId olabilir (| ile ayrılmış)
     const detail = r['Detay'] || '';

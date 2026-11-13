@@ -322,7 +322,7 @@ export default function ListingDetail({ property: p, properties, presentMode, re
                 className="mt-3 h-[300px]"
               />
             ) : (
-              <p className="mt-3 text-sm text-muted">Bölge belli olmadığı için harita gösterilemiyor. Sheets'te “Bölge” veya “Konum” sütununu doldurun.</p>
+              <p className="mt-3 text-sm text-muted">İlçe girilmediği için harita gösterilemiyor.{canManage ? ' “Düzenle” ile ilçeyi seçin.' : ''}</p>
             )}
             {!presentMode && coords && (
               <p className="mt-2 text-sm text-muted">
@@ -368,7 +368,7 @@ export default function ListingDetail({ property: p, properties, presentMode, re
               </form>
               {history.length === 0 ? (
                 <p className="mt-3 text-sm text-muted">
-                  {v2Ready ? 'Bu ilan için henüz kayıt yok.' : 'Geçmiş, Apps Script v2 yayınlanınca tutulmaya başlar.'}
+                  {v2Ready ? 'Bu ilan için henüz kayıt yok.' : 'Geçmiş şu an yüklenemedi. Sayfayı yenileyin.'}
                 </p>
               ) : (
                 <ul className="mt-3">
@@ -490,7 +490,7 @@ export default function ListingDetail({ property: p, properties, presentMode, re
                 <p className="mt-2 text-sm text-muted">Yükleniyor…</p>
               ) : ownerState === 'error' ? (
                 <p className="mt-2 text-sm text-muted">
-                  {!officeKey ? 'Mal sahibi bilgisini görmek için çıkış yapıp yeniden giriş yapın.' : 'Mal sahibi bilgisi okunamadı (Apps Script v2 yayınlandı mı?).'}
+                  {!officeKey ? 'Mal sahibi bilgisini görmek için çıkış yapıp yeniden giriş yapın.' : 'Mal sahibi bilgisi şu an yüklenemedi. Sayfayı yenileyin.'}
                 </p>
               ) : owner ? (
                 <dl className="mt-2 text-sm">
@@ -562,7 +562,7 @@ export default function ListingDetail({ property: p, properties, presentMode, re
         >
           <label htmlFor="newprice" className="block text-sm font-medium text-ink mb-2">Yeni fiyat (TL)</label>
           <input id="newprice" inputMode="numeric" value={newPrice} onChange={(e) => setNewPrice(e.target.value)} className="field num" />
-          <p className="mt-2">Şimdiki: {formatPrice(p.price)}. Eski fiyat Sheets'te “Eski Fiyat” sütununda tutulur, listede “Fiyat düştü” olarak görünür.</p>
+          <p className="mt-2">Şimdiki: {formatPrice(p.price)}. Eski fiyat saklanır. Fiyat düşerse listede “Fiyat düştü” görünür ve talebi uyan müşterilerin danışmanlarına bildirim gider.</p>
         </Dialog>
       )}
 
@@ -596,7 +596,7 @@ export default function ListingDetail({ property: p, properties, presentMode, re
               </select>
             </div>
           </div>
-          <p className="mt-3">İlan Satılan sekmesine geçer; kayıt Sheets'teki “Satışlar” sayfasına yazılır.</p>
+          <p className="mt-3">İlan Satılan sekmesine geçer, satış yönetici özetine işlenir.</p>
         </Dialog>
       )}
 
@@ -626,7 +626,7 @@ export default function ListingDetail({ property: p, properties, presentMode, re
             </>
           }
         >
-          “{p.title}” portföyden kalkar. Kayıt Sheets'te kalır ve Silinen sekmesinden geri alınabilir.
+          “{p.title}” portföyden kalkar. Kayıt kaybolmaz; Silinen sekmesinden geri alınabilir.
         </Dialog>
       )}
     </div>
