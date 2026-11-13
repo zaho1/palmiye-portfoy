@@ -225,6 +225,12 @@ function parseSize_(s) {
   var m = String(s || '').replace(',', '.').match(/[0-9.]+/);
   return m ? Math.round(parseFloat(m[0].replace(/\.(?=\d{3})/g, ''))) : 0;
 }
+// İsim karşılaştırması: büyük/küçük harf ve Türkçe karakter farkı önemsiz ("Ersin Aktarlı" = "ersin aktarli")
+function foldName_(s) {
+  return String(s || '').replace(/İ/g, 'i').replace(/I/g, 'ı').toLowerCase()
+    .replace(/ı/g, 'i').replace(/ş/g, 's').replace(/ğ/g, 'g').replace(/ü/g, 'u').replace(/ö/g, 'o').replace(/ç/g, 'c')
+    .replace(/\s+/g, ' ').trim();
+}
 function kindOf_(category) {
   return String(category || '').replace(/satılık|kiralık/gi, '').trim();
 }
@@ -857,11 +863,20 @@ function doPost(e) {
       row = findRowByTitle_(sh, map, data.title);
       if (row < 0) return json_({ success: false, message: 'İlan bulunamadı' });
 
-      if (data.action === 'updateStatus') {
-        // Silme yalnızca yöneticiler içindir
-        if (data.status === 'Silindi' && !(g.advisor && ADMIN_EMAILS.indexOf(g.advisor.email) !== -1)) {
-          return json_({ success: false, message: 'İlan silme yalnızca yöneticilere açık.' });
+      // Durum (pasif, satıldı, silindi, aktife alma) yalnızca ilanın danışmanı ve yöneticiler tarafından değiştirilir
+      if (data.action === 'updateStatus' || data.action === 'recordSale') {
+        var adminStatus = !!g.advisor && ADMIN_EMAILS.indexOf(g.advisor.email) !== -1;
+        if (!adminStatus) {
+          if (!g.advisor) return json_({ success: false, message: 'İlan durumunu değiştirmek için kişisel hesabınızla giriş yapın.' });
+          var ownerName = map['Danışman Bilgileri'] ? sh.getRange(row, map['Danışman Bilgileri']).getDisplayValue() : '';
+          if (foldName_(ownerName) !== foldName_(g.advisor.name)) {
+            return json_({ success: false, message: 'Bu ilanın durumunu yalnızca danışmanı (' + (ownerName || 'atanmamış') + ') ve yöneticiler değiştirebilir.' });
+          }
         }
+      }
+
+      if (data.action === 'updateStatus') {
+        // Silme dahil tüm durum değişiklikleri yukarıda sahiplik kontrolünden geçti (danışmanı veya yönetici)
         setCells_(sh, row, map, { 'Durum': data.status, 'Son Güncelleme': now_() });
         if (data.status === 'Silindi') sh.hideRows(row); // satır silinmez (ID'ler kaymasın), sadece gizlenir
         log_(who, 'Durum: ' + data.status, data.title, '');

@@ -1,4 +1,4 @@
-import { isAdmin } from '../lib/admin';
+import { canManageListing } from '../lib/admin';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Calculator, Check, ChevronLeft, ChevronRight, Copy, ExternalLink, FileText, Lock, MapPin, MessageCircle, Phone, RotateCcw, Search, Share2, Trash2 } from 'lucide-react';
 import type { ActivityEntry, CustomerRequest, ListingStatus, OwnerInfo, ParcelFields, Property } from '../types';
@@ -72,6 +72,7 @@ export default function ListingDetail({ property: p, properties, presentMode, re
   const [ownerDraft, setOwnerDraft] = useState<OwnerInfo>(EMPTY_OWNER);
   const [pick, setPick] = useState<{ lat: number; lng: number } | null>(null);
   const { settings } = useSettings();
+  const canManage = canManageListing(p.agentName, userName, currentUser);
   const closeDialog = useCallback(() => setPending(null), []);
 
   const prev = useCallback(() => setIndex((i) => (i === 0 ? images.length - 1 : i - 1)), [images.length]);
@@ -191,20 +192,29 @@ export default function ListingDetail({ property: p, properties, presentMode, re
               <button onClick={() => actions.touch(p)} className={btnSecondary} title="İlanın fiyatı ve durumu hâlâ doğru">
                 <Check className="w-4 h-4" /> Güncel
               </button>
-              <button onClick={() => setPending('sold')} className={btnSecondary}>Satıldı / kiralandı</button>
-              <button onClick={() => actions.status(p, 'Pasif')} className={btnSecondary}>Pasife al</button>
-              {isAdmin(currentUser) && (
-                <button onClick={() => setPending('delete')} className={btnDanger} aria-label="İlanı sil">
-                  <Trash2 className="w-4 h-4" /> <span className="hidden sm:inline">Sil</span>
-                </button>
+              {canManage && (
+                <>
+                  <button onClick={() => setPending('sold')} className={btnSecondary}>Satıldı / kiralandı</button>
+                  <button onClick={() => actions.status(p, 'Pasif')} className={btnSecondary}>Pasife al</button>
+                  <button onClick={() => setPending('delete')} className={btnDanger} aria-label="İlanı sil">
+                    <Trash2 className="w-4 h-4" /> <span className="hidden sm:inline">Sil</span>
+                  </button>
+                </>
               )}
             </>
           ) : (
-            <button onClick={() => actions.status(p, 'Aktif')} className={btnSecondary}>
-              <RotateCcw className="w-4 h-4" /> Aktife geri al
-            </button>
+            canManage && (
+              <button onClick={() => actions.status(p, 'Aktif')} className={btnSecondary}>
+                <RotateCcw className="w-4 h-4" /> Aktife geri al
+              </button>
+            )
           )}
         </div>
+        {!canManage && !presentMode && (
+          <p className="basis-full text-[13px] text-faint">
+            Satıldı, pasif ve silme işlemlerini ilanın danışmanı ({p.agentName || 'atanmamış'}) ve yöneticiler yapabilir.
+          </p>
+        )}
       </header>
 
       {stale && (
