@@ -1,4 +1,4 @@
-import type { ActivityEntry, CustomerRequest, ListingStatus, OwnerInfo, Property } from '../types';
+import type { ActivityEntry, Comp, CustomerRequest, ListingStatus, OwnerInfo, ParcelFields, Property } from '../types';
 
 const SHEET_API_URL = 'https://script.google.com/macros/s/AKfycbxrz5C7MO9i1Xrer7fxclyAIV-UHNjJ1bCr99BkWaZ6fKmbi9FhUkpEHoSKZbFlP0kAUg/exec';
 
@@ -144,6 +144,10 @@ function rowToProperty(row: Record<string, string>, index: number): Property {
     createdAt: parseDate(row['Eklenme Tarihi']),
     updatedAt: parseDate(row['Son Güncelleme'] || row['Eklenme Tarihi']),
     ...(parseLocation(row['Konum']) ?? {}),
+    taks: row['TAKS'] || '',
+    kaks: row['KAKS (Emsal)'] || '',
+    maxFloors: row['Maks. Kat'] || '',
+    imarNote: row['İmar Notu'] || '',
   };
 }
 
@@ -305,6 +309,71 @@ export async function fetchRequests(): Promise<CustomerRequest[]> {
     contactNote: r['Görüşme Notu'] || '',
   }));
 }
+
+/* ---------- Emsaller, parsel ve imar ---------- */
+
+export type SaleComp = { title: string; price: number; date: Date | null };
+export async function fetchComps(): Promise<{ comps: Comp[]; sales: SaleComp[] }> {
+  const r = await get<{ rows?: Record<string, string>[]; sales?: { title: string; price: string; date: string }[] }>({ action: 'comps' });
+  const comps = (r.rows ?? [])
+    .filter((x) => x['Emsal No'])
+    .map((x) => ({
+      id: x['Emsal No'],
+      at: parseDate(x['Tarih']),
+      forTitle: x['İlan'] || '',
+      source: x['Kaynak'] || '',
+      link: x['Link'] || '',
+      category: x['Kategori'] || '',
+      region: x['Bölge'] || '',
+      neighborhood: x['Mahalle'] || '',
+      size: parseSize(x['m²'] || ''),
+      rooms: x['Oda'] || '',
+      price: parsePrice(x['Fiyat'] || ''),
+      state: (x['Durum'] === 'Satıldı' ? 'Satıldı' : 'İlanda') as Comp['state'],
+      note: x['Not'] || '',
+      addedBy: x['Ekleyen'] || '',
+      addedByEmail: (x['E-posta'] || '').toLowerCase(),
+    }));
+  const sales = (r.sales ?? []).map((x) => ({ title: x.title, price: parsePrice(x.price || ''), date: parseDate(x.date) }));
+  return { comps, sales };
+}
+
+export interface NewComp {
+  forTitle: string;
+  source: string;
+  link: string;
+  category: string;
+  region: string;
+  neighborhood: string;
+  size: string;
+  rooms: string;
+  price: string;
+  state: 'İlanda' | 'Satıldı';
+  note: string;
+}
+export const addComp = (comp: NewComp) =>
+  postRead<{ success: boolean; message?: string; id?: string }>({ action: 'addComp', comp }).then((r) => {
+    if (!r.success) throw new Error(r.message || 'Emsal kaydedilemedi');
+    return r.id ?? '';
+  });
+export const deleteComp = (id: string) =>
+  postRead<{ success: boolean; message?: string }>({ action: 'deleteComp', id }).then((r) => {
+    if (!r.success) throw new Error(r.message || 'Emsal silinemedi');
+  });
+
+export const parcelToSheet = (f: ParcelFields): Record<string, string> => ({
+  'Ada/Parsel': f.adaParsel,
+  'Mahalle': f.neighborhood,
+  'İmar Durumu': f.imarStatus,
+  'TAKS': f.taks,
+  'KAKS (Emsal)': f.kaks,
+  'Maks. Kat': f.maxFloors,
+  'İmar Notu': f.imarNote,
+});
+export const setParcel = (title: string, f: ParcelFields) =>
+  postRead<{ success: boolean; message?: string }>({ action: 'setParcel', title, fields: parcelToSheet(f) }).then((r) => {
+    if (!r.success) throw new Error(r.message || 'Kaydedilemedi');
+  });
 
 export async function fetchActivity(): Promise<ActivityEntry[]> {
   const { rows } = await get<{ rows?: Record<string, string>[] }>({ action: 'log' });

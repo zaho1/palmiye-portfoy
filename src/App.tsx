@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowLeft, Eye, EyeOff, Menu, MessageCircle, Phone, Search, X } from 'lucide-react';
-import type { ActivityEntry, CustomerRequest, ListingStatus, Property } from './types';
+import type { ActivityEntry, CustomerRequest, ListingStatus, ParcelFields, Property } from './types';
 import {
   addNote,
   addRequest,
@@ -20,6 +20,7 @@ import {
   setApiUser,
   setAuthFailureHandler,
   setLocation,
+  setParcel,
   touchListing,
   updatePrice,
   updateRequest,
@@ -44,6 +45,8 @@ import Requests from './components/Requests';
 import Maps from './components/Maps';
 import Settings from './components/Settings';
 import Brochure from './components/Brochure';
+import CompsPage from './components/CompsPage';
+import ValuationReport from './components/ValuationReport';
 import Sidebar, { type SyncState } from './components/Sidebar';
 import Notifications from './components/Notifications';
 import Toast, { type ToastState } from './components/Toast';
@@ -403,6 +406,16 @@ export default function App() {
         setToast({ message: `${p.id} konumu kaydedildi.` });
         write(() => setLocation(p.title, formatLocation(lat, lng)), () => patch(p.id, before), p.id);
       },
+      parcel: (p: Property, f: ParcelFields) => {
+        const before: Partial<Property> = {
+          adaParsel: p.adaParsel, neighborhood: p.neighborhood, imarStatus: p.imarStatus,
+          taks: p.taks, kaks: p.kaks, maxFloors: p.maxFloors, imarNote: p.imarNote,
+        };
+        patch(p.id, f);
+        logLocal('Parsel / imar bilgisi güncellendi', p.title);
+        setToast({ message: `${p.id} parsel ve imar bilgisi kaydedildi.` });
+        write(() => setParcel(p.title, f), () => patch(p.id, before), p.id);
+      },
     }),
     [changeStatus, patch, logLocal, write, applyStatus],
   );
@@ -522,7 +535,7 @@ export default function App() {
     );
   }
   const isList = route.name === 'list' || route.name === 'mine' || route.name === 'favorites';
-  const objectId = route.name === 'detail' || route.name === 'brochure' ? route.id : null;
+  const objectId = route.name === 'detail' || route.name === 'brochure' || route.name === 'comps' || route.name === 'report' ? route.id : null;
   const selected = objectId ? properties.find((p) => p.id === objectId) : undefined;
   const pageName: Record<string, string> = {
     requests: 'Müşteri talepleri',
@@ -632,6 +645,14 @@ export default function App() {
             <Settings userName={userName} userEmail={currentUser} sync={sync} onRefresh={load} onLogout={handleLogout} />
           ) : route.name === 'brochure' ? (
             selected ? <Brochure property={selected} /> : loading ? <p className="text-muted">İlan yükleniyor…</p> : notFound
+          ) : route.name === 'comps' ? (
+            selected ? (
+              <CompsPage property={selected} properties={properties} currentUser={currentUser ?? ''} userName={userName} notify={(message) => setToast({ message })} />
+            ) : loading ? <p className="text-muted">İlan yükleniyor…</p> : notFound
+          ) : route.name === 'report' ? (
+            selected ? (
+              <ValuationReport property={selected} properties={properties} userName={userName} currentUser={currentUser ?? ''} />
+            ) : loading ? <p className="text-muted">İlan yükleniyor…</p> : notFound
           ) : route.name === 'detail' ? (
             selected ? (
               <ListingDetail

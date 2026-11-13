@@ -54,6 +54,10 @@ var ADVISORS = [
 
 var ADV_HEADERS = ['E-posta', 'Ad Soyad', 'Telefon', 'Rol', 'Aktif', 'Davet Kodu', 'Şifre Özeti', 'Tuz', 'Son Giriş'];
 var SUB_HEADERS = ['E-posta', 'Endpoint', 'p256dh', 'auth', 'Cihaz', 'Tarih', 'Haberler'];
+// Emsaller: danışmanların elle girdiği piyasa emsalleri (ör. sahibinden'de görülen benzer ilanlar)
+var COMP_HEADERS = ['Emsal No', 'Tarih', 'İlan', 'Kaynak', 'Link', 'Kategori', 'Bölge', 'Mahalle', 'm²', 'Oda', 'Fiyat', 'Durum', 'Not', 'Ekleyen', 'E-posta'];
+// Parsel ve imar kartında düzenlenebilen ilan sütunları
+var PARCEL_FIELDS = ['Ada/Parsel', 'Mahalle', 'İmar Durumu', 'TAKS', 'KAKS (Emsal)', 'Maks. Kat', 'İmar Notu'];
 
 // ---------- Yardımcılar ----------
 
@@ -947,6 +951,67 @@ function doPost(e) {
       return json_({ success: true });
     }
 
+    // Parsel ve imar kartı: yalnızca izin verilen sütunlar yazılır
+    if (data.action === 'setParcel') {
+      var pf = data.fields || {};
+      var upd = {};
+      PARCEL_FIELDS.forEach(function (k) {
+        if (pf[k] !== undefined && pf[k] !== null) upd[k] = String(pf[k]).trim().slice(0, 300);
+      });
+      if (!Object.keys(upd).length) return json_({ success: false, message: 'Değişiklik yok' });
+      sh = listingSheet_();
+      map = headerMap_(sh, Object.keys(upd));
+      row = findRowByTitle_(sh, map, data.title);
+      if (row < 0) return json_({ success: false, message: 'İlan bulunamadı' });
+      setCells_(sh, row, map, upd);
+      log_(who, 'Parsel / imar bilgisi güncellendi', data.title, '');
+      return json_({ success: true });
+    }
+
+    // Emsal ekle: "Emsaller" sayfasına yeni satır
+    if (data.action === 'addComp') {
+      var c = data.comp || {};
+      var link = String(c.link || '').trim();
+      if (link && !/^https?:\/\//i.test(link)) return json_({ success: false, message: 'Link http ile başlamalı.' });
+      var cPrice = parsePrice_(c.price);
+      if (!cPrice) return json_({ success: false, message: 'Emsalin fiyatını girin.' });
+      var compId = 'E-' + new Date().getTime().toString(36).toUpperCase();
+      var adv = g.advisor;
+      appendObject_(sheet_('Emsaller', COMP_HEADERS), {
+        'Emsal No': compId,
+        'Tarih': now_(),
+        'İlan': String(c.forTitle || '').slice(0, 200),
+        'Kaynak': String(c.source || 'Sahibinden').slice(0, 40),
+        'Link': link.slice(0, 500),
+        'Kategori': String(c.category || '').slice(0, 60),
+        'Bölge': String(c.region || '').slice(0, 40),
+        'Mahalle': String(c.neighborhood || '').slice(0, 60),
+        'm²': String(parseSize_(c.size) || ''),
+        'Oda': String(c.rooms || '').slice(0, 20),
+        'Fiyat': String(cPrice),
+        'Durum': c.state === 'Satıldı' ? 'Satıldı' : 'İlanda',
+        'Not': String(c.note || '').slice(0, 300),
+        'Ekleyen': adv ? adv.name : who,
+        'E-posta': adv ? adv.email : who,
+      });
+      if (c.forTitle) log_(who, 'Emsal eklendi', c.forTitle, cPrice.toLocaleString('tr-TR') + ' TL');
+      return json_({ success: true, id: compId });
+    }
+
+    // Emsal sil: ekleyen kişi ya da yönetici
+    if (data.action === 'deleteComp') {
+      sh = sheet_('Emsaller', COMP_HEADERS);
+      var found = readRows_(sh).filter(function (r) { return r['Emsal No'] === data.id; })[0];
+      if (!found) return json_({ success: false, message: 'Emsal bulunamadı' });
+      var me = (g.advisor ? g.advisor.email : who).toLowerCase();
+      var adminComp = !!g.advisor && ADMIN_EMAILS.indexOf(g.advisor.email) !== -1;
+      if (!adminComp && String(found['E-posta'] || '').toLowerCase() !== me) {
+        return json_({ success: false, message: 'Emsali yalnızca ekleyen kişi veya yönetici silebilir.' });
+      }
+      sh.deleteRow(found._row);
+      return json_({ success: true });
+    }
+
     if (data.action === 'addRequest') {
       var req = data.request;
       req['Tarih'] = now_();
@@ -1058,6 +1123,16 @@ function doGet(e) {
       var adminLog = !!g.advisor && ADMIN_EMAILS.indexOf(g.advisor.email) !== -1;
       if (!adminLog) logRows = logRows.filter(function (r) { return String(r['İşlem'] || '') !== 'Müşteri talebi kapandı'; });
       return json_({ success: true, rows: logRows.reverse().slice(0, 200) });
+    }
+    // Emsaller: herkes elle girilen emsalleri görür; gerçekleşen satış fiyatlarını yalnızca yöneticiler
+    if (p.action === 'comps') {
+      var compOut = { success: true, rows: readSheet_('Emsaller') };
+      if (g.advisor && ADMIN_EMAILS.indexOf(g.advisor.email) !== -1) {
+        compOut.sales = readSheet_('Satışlar').map(function (r) {
+          return { title: r['İlan'] || '', price: r['Gerçekleşen Fiyat'] || '', date: r['Tarih'] || '' };
+        });
+      }
+      return json_(compOut);
     }
     // Yönetici: pasif dahil tüm hesaplar (aktif/pasif düğmesi için)
     if (p.action === 'advisorsAll') {

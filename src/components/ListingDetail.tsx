@@ -1,7 +1,8 @@
 import { isAdmin } from '../lib/admin';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Check, ChevronLeft, ChevronRight, Copy, ExternalLink, FileText, Lock, MapPin, MessageCircle, Phone, RotateCcw, Share2, Trash2 } from 'lucide-react';
-import type { ActivityEntry, CustomerRequest, ListingStatus, OwnerInfo, Property } from '../types';
+import { Calculator, Check, ChevronLeft, ChevronRight, Copy, ExternalLink, FileText, Lock, MapPin, MessageCircle, Phone, RotateCcw, Search, Share2, Trash2 } from 'lucide-react';
+import type { ActivityEntry, CustomerRequest, ListingStatus, OwnerInfo, ParcelFields, Property } from '../types';
+import ParcelCard from './ParcelCard';
 import {
   coordsOf,
   customerShareText,
@@ -36,6 +37,7 @@ export interface DetailActions {
   note: (p: Property, text: string) => void;
   deleteNote: (p: Property, entry: ActivityEntry) => void;
   location: (p: Property, lat: number, lng: number) => void;
+  parcel: (p: Property, fields: ParcelFields) => void;
 }
 
 interface Props {
@@ -174,6 +176,16 @@ export default function ListingDetail({ property: p, properties, presentMode, re
           <a href={`#/brosur/${encodeURIComponent(p.id)}`} className={btnSecondary}>
             <FileText className="w-4 h-4" /> Broşür
           </a>
+          {!presentMode && (
+            <>
+              <a href={`#/emsal/${encodeURIComponent(p.id)}`} className={btnSecondary}>
+                <Search className="w-4 h-4" /> Emsal bak
+              </a>
+              <a href={`#/rapor/${encodeURIComponent(p.id)}`} className={btnSecondary}>
+                <Calculator className="w-4 h-4" /> Değerleme raporu
+              </a>
+            </>
+          )}
           {p.status === 'Aktif' ? (
             <>
               <button onClick={() => actions.touch(p)} className={btnSecondary} title="İlanın fiyatı ve durumu hâlâ doğru">
@@ -318,13 +330,10 @@ export default function ListingDetail({ property: p, properties, presentMode, re
               <a href={mapsUrl} target="_blank" rel="noreferrer" className={btnSecondary}>
                 <MapPin className="w-4 h-4" /> {coords && !coords.approx ? 'Yol tarifi' : 'Google Maps’te ara'}
               </a>
-              {!presentMode && (
-                <a href="https://parselsorgu.tkgm.gov.tr/" target="_blank" rel="noreferrer" className={btnSecondary} title={p.adaParsel ? `Ada/parsel: ${p.adaParsel}` : undefined}>
-                  TKGM parsel sorgu <ExternalLink className="w-3.5 h-3.5" />
-                </a>
-              )}
             </div>
           </section>
+
+          {!presentMode && <ParcelCard property={p} onSave={(f) => actions.parcel(p, f)} />}
 
           {!presentMode && (
             <section className="bg-surface rounded-xl p-5">

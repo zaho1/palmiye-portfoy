@@ -31,6 +31,41 @@ export interface Property {
   // "Konum" sütunu: "40.6961, 29.5081"
   lat?: number;
   lng?: number;
+  // Parsel ve imar kartı (boş olabilir)
+  taks?: string;
+  kaks?: string;
+  maxFloors?: string;
+  imarNote?: string;
+}
+
+// Parsel ve imar kartında düzenlenen alanlar (Sheet sütun adlarıyla eşleşir)
+export interface ParcelFields {
+  adaParsel: string;
+  neighborhood: string;
+  imarStatus: string;
+  taks: string;
+  kaks: string;
+  maxFloors: string;
+  imarNote: string;
+}
+
+// Danışmanın elle girdiği piyasa emsali ("Emsaller" sayfası)
+export interface Comp {
+  id: string;
+  at: Date | null;
+  forTitle: string;
+  source: string;
+  link: string;
+  category: string;
+  region: string;
+  neighborhood: string;
+  size: number;
+  rooms: string;
+  price: number;
+  state: 'İlanda' | 'Satıldı';
+  note: string;
+  addedBy: string;
+  addedByEmail: string;
 }
 
 export interface OwnerInfo {
