@@ -3,6 +3,7 @@ import { Globe, Heart, House, LogOut, Map as MapIcon, Moon, Plus, RefreshCw, Set
 import type { Property } from '../types';
 import { isIncomplete, isRecent, isStale, priceDropped } from '../lib/sheets';
 import { useSettings } from '../lib/settings';
+import { isAdmin } from '../lib/admin';
 
 export interface SyncState {
   loading: boolean;
@@ -88,6 +89,7 @@ export default function Sidebar({ hash, properties, userName, userEmail, matched
       </div>
 
       <div className="border-t border-rule px-2 py-3 space-y-3">
+        {isAdmin(userEmail) ? (
         <div className="mx-1 rounded-lg bg-surface px-3 py-2.5">
           <div className="flex items-center gap-2 text-xs">
             <span className={`w-2 h-2 rounded-full flex-none ${status.dot}`} aria-hidden="true" />
@@ -98,6 +100,11 @@ export default function Sidebar({ hash, properties, userName, userEmail, matched
           </div>
           <p className="text-xs text-faint num mt-0.5">Son eşitleme {loadedText}</p>
         </div>
+        ) : (
+          <button onClick={onRefresh} className="mx-1 w-[calc(100%-0.5rem)] h-9 rounded-lg bg-surface text-sm flex items-center justify-center gap-2 text-muted hover:text-ink">
+            <RefreshCw className={`w-3.5 h-3.5 ${sync.loading ? 'animate-spin' : ''}`} /> Verileri yenile
+          </button>
+        )}
 
         <div className="flex items-center gap-1 px-1">
           <a href="#/ayarlar" aria-current={current === 'ayarlar' ? 'page' : undefined} className={`flex-1 h-9 px-2 rounded-md flex items-center gap-2 text-sm hover:text-ink hover:bg-surface ${current === 'ayarlar' ? 'text-ink font-medium' : 'text-nav'}`}>

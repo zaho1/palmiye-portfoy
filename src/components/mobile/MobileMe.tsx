@@ -79,7 +79,7 @@ export default function MobileMe({ properties, userName, userEmail, sync, presen
       {isAdmin && <AdminSummary />}
 
       <InstallCard />
-      <PushSettings />
+      <PushSettings showTest={isAdmin} />
 
       <section className="bg-surface rounded-2xl overflow-hidden">
         <Row href="#/benim" icon={<UserRound />} label="Benim ilanlarım" value={String(counts.mine)} />
@@ -116,6 +116,7 @@ export default function MobileMe({ properties, userName, userEmail, sync, presen
         </div>
       </section>
 
+      {isAdmin ? (
       <section className="bg-surface rounded-2xl p-4">
         <div className="flex items-center gap-3">
           <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${sync.error ? 'bg-negative' : !sync.v2Ready ? 'bg-warning' : 'bg-positive'}`} aria-hidden="true" />
@@ -128,6 +129,11 @@ export default function MobileMe({ properties, userName, userEmail, sync, presen
           </button>
         </div>
       </section>
+      ) : (
+        <button onClick={onRefresh} disabled={sync.loading} className={`${btnBigSecondary} w-full`}>
+          <RefreshCw className={`w-5 h-5 ${sync.loading ? 'animate-spin' : ''}`} /> {sync.loading ? 'Yenileniyor…' : 'Verileri yenile'}
+        </button>
+      )}
 
       <button onClick={onLogout} className={`${btnBigDanger} w-full`}>
         <LogOut className="w-5 h-5" /> Oturumu kapat

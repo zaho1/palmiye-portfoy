@@ -3,6 +3,7 @@ import { Check, Monitor, Moon, Sun } from 'lucide-react';
 import { useSettings, type ThemeChoice } from '../lib/settings';
 import type { SyncState } from './Sidebar';
 import { btnSecondary } from './Dialog';
+import { isAdmin } from '../lib/admin';
 
 interface Props {
   userName: string;
@@ -87,9 +88,14 @@ export default function Settings({ userName, userEmail, sync, onRefresh, onLogou
         <input id="s-sign" value={settings.shareSignature} onChange={(e) => update({ shareSignature: e.target.value })} className="field" />
       </Row>
 
-      <Row title="Bağlantı" hint="İlanlar Google Sheets'te yayınlanan tablodan okunur, değişiklikler Apps Script ile yazılır.">
+      {!isAdmin(userEmail) ? (
+        <Row title="Veriler" hint="İlanlar ve talepler birkaç dakikada bir kendiliğinden yenilenir.">
+          <button onClick={onRefresh} className={btnSecondary}>Şimdi yenile</button>
+        </Row>
+      ) : (
+      <Row title="Bağlantı" hint="İlanlar Google Sheets'ten Apps Script ile okunur ve yazılır. Bu bölümü yalnızca yöneticiler görür.">
         <dl className="text-sm">
-          <Status label="İlan tablosu (CSV)" ok={!sync.error} okText="Bağlı" badText="Okunamadı" />
+          <Status label="İlan tablosu" ok={!sync.error} okText="Bağlı" badText="Okunamadı" />
           <Status label="Apps Script v2" ok={sync.v2Ready} okText="Yayında" badText="Eski sürüm. Talepler, geçmiş ve ofis içi bilgiler kapalı" />
           <div className="flex items-center justify-between h-9">
             <dt className="text-muted">Son eşitleme</dt>
@@ -98,6 +104,7 @@ export default function Settings({ userName, userEmail, sync, onRefresh, onLogou
         </dl>
         <button onClick={onRefresh} className={btnSecondary}>Şimdi eşitle</button>
       </Row>
+      )}
 
       <Row title="Oturum" hint="Bu cihazdaki ayarları varsayılana döndürebilir veya oturumu kapatabilirsiniz.">
         <div className="flex flex-wrap gap-2">

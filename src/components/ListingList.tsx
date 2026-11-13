@@ -193,7 +193,7 @@ export default function ListingList({ properties, requests, activity, scope, pre
         <h1 className="text-xl font-semibold">{title}</h1>
         <p className="text-muted mt-1">
           {pending
-            ? 'Google Sheets verileri yükleniyor…'
+            ? 'İlanlar yükleniyor…'
             : scope === 'favorites'
               ? 'Yıldızladığınız ilanlar bu cihazda saklanır.'
               : 'Yalova · bütün danışmanların ilanları tek listede.'}
@@ -338,7 +338,7 @@ export default function ListingList({ properties, requests, activity, scope, pre
       {/* İçerik */}
       {loadError ? (
         <div className="rounded-lg border border-dashed border-control px-4 py-3 text-muted flex flex-wrap items-center gap-3">
-          <span>Google Sheets verileri yüklenemedi. İnternet bağlantısını veya tablonun yayın ayarını kontrol edin.</span>
+          <span>İlanlar yüklenemedi. İnternet bağlantınızı kontrol edip tekrar deneyin.</span>
           <button onClick={onRetry} className="text-ink underline underline-offset-2">Tekrar dene</button>
         </div>
       ) : pending ? (

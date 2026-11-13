@@ -44,7 +44,7 @@ export function PushBanner() {
 }
 
 // Ben sekmesinde: açma/kapama, ofis haberleri, deneme
-export function PushSettings() {
+export function PushSettings({ showTest = false }: { showTest?: boolean }) {
   const { state, news, busy, error, enable, disable, setNews } = usePush();
   const [tested, setTested] = useState(false);
   const [testError, setTestError] = useState('');
@@ -77,6 +77,7 @@ export function PushSettings() {
           <span className={`h-8 px-3 rounded-full text-[14px] font-medium flex items-center ${news ? 'bg-ink text-ground' : 'bg-raised text-muted'}`}>{news ? 'Açık' : 'Kapalı'}</span>
         </button>
         <div className="mt-3 flex gap-3">
+          {showTest && (
           <button
             onClick={() => {
               setTestError('');
@@ -88,6 +89,7 @@ export function PushSettings() {
           >
             {tested ? 'Gönderildi' : 'Deneme gönder'}
           </button>
+          )}
           <button onClick={disable} disabled={busy} className={`${btnBigSecondary} flex-1`}>Kapat</button>
         </div>
       </>
