@@ -47,6 +47,7 @@ import Settings from './components/Settings';
 import Brochure from './components/Brochure';
 import CompsPage from './components/CompsPage';
 import ValuationReport from './components/ValuationReport';
+import EditListing from './components/EditListing';
 import Sidebar, { type SyncState } from './components/Sidebar';
 import Notifications from './components/Notifications';
 import Toast, { type ToastState } from './components/Toast';
@@ -477,6 +478,17 @@ export default function App() {
   );
 
   // Yeni ilan Sheets'e gönderildikten sonra: listede hemen görünsün, cihazda "bekleyen" olarak tutulsun
+  // İlan düzenlendi: ekranda hemen güncellenir, birkaç saniye sonra Sheet'ten gerçek veriyle eşitlenir
+  const listingEdited = useCallback(
+    (id: string, change: Partial<Property>) => {
+      patch(id, change);
+      logLocal('İlan düzenlendi', change.title ?? '');
+      setToast({ message: `${id} güncellendi.` });
+      window.setTimeout(fetchAll, 4000);
+    },
+    [patch, logLocal, fetchAll],
+  );
+
   const handleListingSaved = useCallback(
     (l: NewListing) => {
       const local = listingToProperty(l, userName);
@@ -528,6 +540,7 @@ export default function App() {
           onFollowUp={saveFollowUp}
           onClearFeed={isAdmin(currentUser) ? clearFeed : undefined}
           onListingSaved={handleListingSaved}
+          onListingEdited={listingEdited}
           notify={(message) => setToast({ message })}
         />
         {toast && <Toast toast={toast} onClose={() => setToast(null)} />}
@@ -535,7 +548,7 @@ export default function App() {
     );
   }
   const isList = route.name === 'list' || route.name === 'mine' || route.name === 'favorites';
-  const objectId = route.name === 'detail' || route.name === 'brochure' || route.name === 'comps' || route.name === 'report' ? route.id : null;
+  const objectId = route.name === 'detail' || route.name === 'brochure' || route.name === 'comps' || route.name === 'report' || route.name === 'edit' ? route.id : null;
   const selected = objectId ? properties.find((p) => p.id === objectId) : undefined;
   const pageName: Record<string, string> = {
     requests: 'Müşteri talepleri',
@@ -648,6 +661,10 @@ export default function App() {
           ) : route.name === 'comps' ? (
             selected ? (
               <CompsPage property={selected} properties={properties} currentUser={currentUser ?? ''} userName={userName} notify={(message) => setToast({ message })} />
+            ) : loading ? <p className="text-muted">İlan yükleniyor…</p> : notFound
+          ) : route.name === 'edit' ? (
+            selected ? (
+              <EditListing key={selected.id} property={selected} currentUser={currentUser ?? ''} userName={userName} onSaved={listingEdited} />
             ) : loading ? <p className="text-muted">İlan yükleniyor…</p> : notFound
           ) : route.name === 'report' ? (
             selected ? (

@@ -63,6 +63,7 @@ export default function MobileNewListing({ properties, defaultAgentName, onSaved
   const [geoState, setGeoState] = useState<'idle' | 'busy'>('idle');
   const [geoError, setGeoError] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [progress, setProgress] = useState('');
   const [error, setError] = useState('');
   const makeForm = (): Form => ({
     title: '',
@@ -205,10 +206,6 @@ export default function MobileNewListing({ properties, defaultAgentName, onSaved
   };
 
   const next = () => {
-    if (step === 0 && !images.length) {
-      setError('En az bir fotoğraf ekleyin. İlk fotoğraf listede kapak olur.');
-      return;
-    }
     if (step === 2 && (!form.title.trim() || !digits(form.price))) {
       setError('Başlık ve fiyat zorunlu.');
       return;
@@ -232,6 +229,7 @@ export default function MobileNewListing({ properties, defaultAgentName, onSaved
       return;
     }
     setSubmitting(true);
+    setProgress('');
     const { deal, kind, ...rest } = form;
     try {
       const listing: NewListing = {
@@ -243,14 +241,14 @@ export default function MobileNewListing({ properties, defaultAgentName, onSaved
         rooms: isLand ? '' : form.rooms,
         location: location ? formatLocation(location.lat, location.lng) : '',
       };
-      await addListing(listing, owner.name || owner.phone ? owner : null);
+      await addListing(listing, owner.name || owner.phone ? owner : null, (d, t) => setProgress(`Fotoğraflar yükleniyor ${d}/${t}…`));
       finished.current = true;
       listingDraftStore.clear();
       haptic(20);
       onSaved(listing);
     } catch (err) {
       console.error('İlan eklenirken hata:', err);
-      setError("İlan Sheets'e gönderilemedi. İnternet bağlantısını kontrol edip tekrar deneyin.");
+      setError(err instanceof Error && err.message.startsWith('Fotoğraflar') ? err.message : 'İlan kaydedilemedi. İnternet bağlantınızı kontrol edip tekrar deneyin. Bilgilerin telefonda duruyor.');
       setSubmitting(false);
     }
   };
@@ -295,7 +293,9 @@ export default function MobileNewListing({ properties, defaultAgentName, onSaved
         )}
         {step === 0 && (
           <>
-            <p className="text-[15px] text-muted">İlk fotoğraf listede kapak olur. En az 1, en iyisi 5 fotoğraf ekleyin.</p>
+            <p className="text-[15px] text-muted">
+              İlk fotoğraf listede kapak olur, en iyisi 5 fotoğraf. Fotoğrafın şu an yoksa "Devam"a bas; ilanı sonra düzenleyip eklersin, 24 saat içinde eklenmezse sana hatırlatırız.
+            </p>
             <div className="grid grid-cols-2 gap-3">
               <input id="ph-cam" type="file" accept={IMAGE_TYPES} capture="environment" onChange={handleFiles} disabled={busyPhotos || images.length >= MAX_IMAGES} className="sr-only" />
               <label htmlFor="ph-cam" className={`${photoBtn} bg-ink text-ground ${busyPhotos || images.length >= MAX_IMAGES ? 'opacity-60' : ''}`}>
@@ -500,7 +500,7 @@ export default function MobileNewListing({ properties, defaultAgentName, onSaved
           )}
           {last ? (
             <button type="button" onClick={submit} disabled={submitting || processing} className={`${btnBig} flex-[2]`}>
-              {submitting ? "Sheets'e yazılıyor…" : 'İlanı kaydet'}
+              {submitting ? progress || 'Kaydediliyor…' : 'İlanı kaydet'}
             </button>
           ) : (
             <button type="button" onClick={next} disabled={processing} className={`${btnBig} flex-[2]`}>

@@ -16,7 +16,8 @@ export type Route =
   | { name: 'detail'; id: string }
   | { name: 'brochure'; id: string }
   | { name: 'comps'; id: string }
-  | { name: 'report'; id: string };
+  | { name: 'report'; id: string }
+  | { name: 'edit'; id: string };
 
 // Hash yönlendirme: tarayıcının geri tuşu çalışır, linkler paylaşılabilir.
 // Liste filtreleri: #/?bolge=Altınova, #/?filtre=teyitsiz|yeni|eksik|indirim
@@ -29,6 +30,7 @@ export function parseHash(hash: string): Route {
   if (h.startsWith('brosur/')) return { name: 'brochure', id: decodeURIComponent(h.slice(7)) };
   if (h.startsWith('emsal/')) return { name: 'comps', id: decodeURIComponent(h.slice(6)) };
   if (h.startsWith('rapor/')) return { name: 'report', id: decodeURIComponent(h.slice(6)) };
+  if (h.startsWith('duzenle/')) return { name: 'edit', id: decodeURIComponent(h.slice(8)) };
   if (h === 'yeni') return { name: 'new' };
   if (h === 'talep/yeni') return { name: 'newRequest' };
   if (h === 'benim') return { name: 'mine' };

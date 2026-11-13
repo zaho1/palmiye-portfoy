@@ -118,7 +118,8 @@ function rowToProperty(row: Record<string, string>, index: number): Property {
   // Görseller ||| ile ayrılmış
   const images = (row['Görsel URL'] || '').split('|||').map((s) => s.trim()).filter(Boolean);
   return {
-    id: `PLM-${101 + index}`,
+    // Kalıcı numara Sheet'teki "İlan No" sütunundan; boşsa eski sıra numarası
+    id: (row['İlan No'] || '').trim() || `PLM-${101 + index}`,
     title: (row['İlan Başlığı'] || '').trim() || 'Başlıksız ilan',
     price: row['Fiyat'] || '',
     category: row['Kategori'] || 'Diğer',
@@ -429,6 +430,47 @@ export const addNote = (title: string, note: string) => post({ action: 'addNote'
 export const deleteNote = (title: string, noteId: string) => post({ action: 'deleteNote', title, noteId });
 export const setLocation = (title: string, location: string) => post({ action: 'setLocation', title, location });
 
+// İlan düzenleme (ilanın danışmanı ve yöneticiler). Alan adları Sheet sütun adlarıdır.
+export interface ListingEdit {
+  title: string;
+  category: string;
+  size: string;
+  description: string;
+  images: string[];
+  region: string;
+  neighborhood: string;
+  rooms: string;
+  floor: string;
+  buildingAge: string;
+  heating: string;
+  features: string[];
+  sahibindenUrl: string;
+  agentPhone: string;
+  agentName?: string; // yalnızca yönetici değiştirebilir
+}
+export const updateListing = (originalTitle: string, e: ListingEdit) =>
+  post({
+    action: 'updateListing',
+    title: originalTitle,
+    fields: {
+      'İlan Başlığı': e.title,
+      'Kategori': e.category,
+      'm²': e.size,
+      'Açıklama': e.description,
+      'Görsel URL': e.images.join('|||'),
+      'Bölge': e.region,
+      'Mahalle': e.neighborhood,
+      'Oda Sayısı': e.rooms,
+      'Kat': e.floor,
+      'Bina Yaşı': e.buildingAge,
+      'Isınma': e.heating,
+      'Özellikler': e.features.join(', '),
+      'Sahibinden Linki': e.sahibindenUrl,
+      'Danışmanın Telefon Numarası': e.agentPhone,
+      ...(e.agentName !== undefined ? { 'Danışman Bilgileri': e.agentName } : {}),
+    },
+  });
+
 export interface SaleRecord {
   listPrice: string;
   price: string;
@@ -519,7 +561,50 @@ export interface NewListing {
   location: string;
 }
 
-export function addListing(l: NewListing, owner: OwnerInfo | null) {
+/* ---------- Fotoğraflar: Drive'a yüklenir, Sheet'e yalnızca link yazılır ---------- */
+
+// Sunucu fotoğraf yüklemeyi desteklemiyorsa (Drive izni henüz verilmediyse) eski yönteme düşülür; tekrar tekrar denenmez
+let photoUploadOff = false;
+
+export async function uploadPhoto(dataUrl: string): Promise<string> {
+  const r = await postRead<{ success: boolean; message?: string; url?: string }>({ action: 'uploadPhoto', data: dataUrl });
+  if (!r.success || !r.url) throw new Error(r.message || 'Fotoğraf yüklenemedi');
+  return r.url;
+}
+
+// data: ile başlayanları yükler, zaten link olanlara dokunmaz. Sıra korunur (ilk fotoğraf kapak).
+export async function uploadImages(images: string[], onProgress?: (done: number, total: number) => void): Promise<string[]> {
+  const pending = images.filter((u) => u.startsWith('data:')).length;
+  if (!pending || photoUploadOff) return images;
+  const out: string[] = [];
+  let done = 0;
+  onProgress?.(0, pending);
+  for (const u of images) {
+    if (!u.startsWith('data:') || photoUploadOff) {
+      out.push(u);
+      continue;
+    }
+    try {
+      out.push(await uploadPhoto(u));
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : '';
+      // Eski sunucu ("Geçersiz işlem") veya Drive izni yok: bu oturumda eski yönteme dön
+      if (/Geçersiz işlem|kişisel hesab|authoriz|yetki|izin|permission|DriveApp/i.test(msg)) {
+        photoUploadOff = true;
+        out.push(u);
+        continue;
+      }
+      throw new Error('Fotoğraflar yüklenemedi. İnternet bağlantınızı kontrol edip tekrar deneyin.');
+    }
+    done++;
+    onProgress?.(done, pending);
+  }
+  return out;
+}
+
+export async function addListing(l: NewListing, owner: OwnerInfo | null, onProgress?: (done: number, total: number) => void) {
+  const images = await uploadImages(l.images, onProgress);
+  l.images = images;
   return post({
     action: 'add',
     data: {

@@ -1,6 +1,6 @@
 import { canManageListing } from '../lib/admin';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Calculator, Check, ChevronLeft, ChevronRight, Copy, ExternalLink, FileText, Lock, MapPin, MessageCircle, Phone, RotateCcw, Search, Share2, Trash2 } from 'lucide-react';
+import { Calculator, Check, Pencil, ChevronLeft, ChevronRight, Copy, ExternalLink, FileText, Lock, MapPin, MessageCircle, Phone, RotateCcw, Search, Share2, Trash2 } from 'lucide-react';
 import type { ActivityEntry, CustomerRequest, ListingStatus, OwnerInfo, ParcelFields, Property } from '../types';
 import ParcelCard from './ParcelCard';
 import {
@@ -177,6 +177,11 @@ export default function ListingDetail({ property: p, properties, presentMode, re
           <a href={`#/brosur/${encodeURIComponent(p.id)}`} className={btnSecondary}>
             <FileText className="w-4 h-4" /> Broşür
           </a>
+          {!presentMode && canManage && (
+            <a href={`#/duzenle/${encodeURIComponent(p.id)}`} className={btnSecondary}>
+              <Pencil className="w-4 h-4" /> Düzenle
+            </a>
+          )}
           {!presentMode && (
             <>
               <a href={`#/emsal/${encodeURIComponent(p.id)}`} className={btnSecondary}>
@@ -212,7 +217,7 @@ export default function ListingDetail({ property: p, properties, presentMode, re
         </div>
         {!canManage && !presentMode && (
           <p className="basis-full text-[13px] text-faint">
-            Satıldı, pasif ve silme işlemlerini ilanın danışmanı ({p.agentName || 'atanmamış'}) ve yöneticiler yapabilir.
+            Düzenleme, fiyat, satıldı, pasif ve silme işlemlerini ilanın danışmanı ({p.agentName || 'atanmamış'}) ve yöneticiler yapabilir.
           </p>
         )}
       </header>
@@ -295,7 +300,7 @@ export default function ListingDetail({ property: p, properties, presentMode, re
             {p.description ? (
               <p className="mt-3 text-[15px] leading-6 whitespace-pre-line max-w-[75ch]">{p.description}</p>
             ) : (
-              <p className="mt-3 text-muted">Açıklama girilmemiş. Sheets'te “Açıklama” sütununa yazılabilir.</p>
+              <p className="mt-3 text-muted">Açıklama girilmemiş.{canManage ? ' “Düzenle” ile ekleyebilirsiniz.' : ''}</p>
             )}
           </section>
 
@@ -400,7 +405,7 @@ export default function ListingDetail({ property: p, properties, presentMode, re
           <div className="bg-surface rounded-xl p-5">
             <div className="flex items-baseline justify-between gap-3">
               <p className="text-sm text-muted">{rent ? 'Aylık kira' : 'Satış fiyatı'}</p>
-              {p.status === 'Aktif' && (
+              {p.status === 'Aktif' && canManage && (
                 <button onClick={() => setPending('price')} className="text-sm text-muted hover:text-ink underline underline-offset-2">Değiştir</button>
               )}
             </div>

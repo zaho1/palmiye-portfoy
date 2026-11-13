@@ -54,6 +54,7 @@ export default function AddListing({ properties, defaultAgentName, onSaved }: Pr
   const [images, setImages] = useState<string[]>([]);
   const [uploading, setUploading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [progress, setProgress] = useState('');
   const [error, setError] = useState('');
 
   const set = (key: keyof Form) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) =>
@@ -120,19 +121,16 @@ export default function AddListing({ properties, defaultAgentName, onSaved }: Pr
       setError('Başlık, fiyat, danışman adı ve telefonu zorunlu.');
       return;
     }
-    if (!images.length) {
-      setError('En az bir fotoğraf ekleyin. İlk fotoğraf listede kapak olarak görünür.');
-      return;
-    }
     setSubmitting(true);
+    setProgress('');
     const { deal, kind, ...rest } = form;
     try {
       const listing: NewListing = { ...rest, category: `${deal} ${kind}`, features, images, rooms: isLand ? '' : form.rooms, location: location ? formatLocation(location.lat, location.lng) : '' };
-      await addListing(listing, owner.name || owner.phone ? owner : null);
+      await addListing(listing, owner.name || owner.phone ? owner : null, (d, t) => setProgress(`Fotoğraflar yükleniyor ${d}/${t}…`));
       onSaved(listing);
     } catch (err) {
       console.error('İlan eklenirken hata:', err);
-      setError("İlan Sheets'e gönderilemedi. İnternet bağlantısını kontrol edip tekrar deneyin.");
+      setError(err instanceof Error && err.message.startsWith('Fotoğraflar') ? err.message : 'İlan kaydedilemedi. İnternet bağlantınızı kontrol edip tekrar deneyin.');
       setSubmitting(false);
     }
   };
@@ -343,7 +341,7 @@ export default function AddListing({ properties, defaultAgentName, onSaved }: Pr
         )}
         <a href="#/" className={btnSecondary}>Vazgeç</a>
         <button type="submit" disabled={submitting || uploading} className={`${btnPrimary} disabled:opacity-60 disabled:cursor-wait`}>
-          {submitting ? "Sheets'e yazılıyor…" : 'İlanı kaydet'}
+          {submitting ? progress || 'Kaydediliyor…' : 'İlanı kaydet'}
         </button>
       </div>
       </div>

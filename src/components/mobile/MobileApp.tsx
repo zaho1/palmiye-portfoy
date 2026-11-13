@@ -10,6 +10,7 @@ import Settings from '../Settings';
 import Brochure from '../Brochure';
 import CompsPage from '../CompsPage';
 import ValuationReport from '../ValuationReport';
+import EditListing from '../EditListing';
 import OfflineBanner from '../OfflineBanner';
 import { useUpdateReady } from '../../lib/pwa';
 import { rememberView, seenMatchesStore, useStore } from '../../lib/personal';
@@ -50,6 +51,7 @@ export interface MobileAppProps {
   onFollowUp: (r: CustomerRequest, f: RequestFollowUp) => void;
   onClearFeed?: () => void; // yalnızca yöneticide dolu
   onListingSaved: (l: NewListing) => void;
+  onListingEdited: (id: string, change: Partial<Property>) => void;
   notify: (message: string) => void;
 }
 
@@ -151,13 +153,13 @@ export default function MobileApp(p: MobileAppProps) {
 
   const active: NavTab =
     route.name === 'today' ? 'today'
-    : route.name === 'list' || route.name === 'detail' || route.name === 'map' || route.name === 'comps' || route.name === 'report' ? 'list'
+    : route.name === 'list' || route.name === 'detail' || route.name === 'map' || route.name === 'comps' || route.name === 'report' || route.name === 'edit' ? 'list'
     : route.name === 'requests' || route.name === 'newRequest' ? 'requests'
     : route.name === 'me' || route.name === 'mine' || route.name === 'favorites' || route.name === 'settings' || route.name === 'team' || route.name === 'agent' ? 'me'
     : null;
   const hideNav = route.name === 'new' || route.name === 'newRequest' || route.name === 'brochure' || route.name === 'report';
 
-  const objectId = route.name === 'detail' || route.name === 'brochure' || route.name === 'comps' || route.name === 'report' ? route.id : null;
+  const objectId = route.name === 'detail' || route.name === 'brochure' || route.name === 'comps' || route.name === 'report' || route.name === 'edit' ? route.id : null;
   const selected = objectId ? p.properties.find((x) => x.id === objectId) : undefined;
   const notFound = (
     <div className="mx-4 mt-4 rounded-2xl border border-dashed border-control px-4 py-4 text-muted">
@@ -282,6 +284,17 @@ export default function MobileApp(p: MobileAppProps) {
           <div className="px-4 pt-4 pb-24">
             {selected ? (
               <CompsPage property={selected} properties={p.properties} currentUser={p.currentUser} userName={p.userName} notify={p.notify} />
+            ) : p.loading ? <p className="text-muted">İlan yükleniyor…</p> : notFound}
+          </div>
+        </>
+      )}
+
+      {route.name === 'edit' && (
+        <>
+          <BackBar title="İlanı düzenle" />
+          <div className="px-4 pt-4">
+            {selected ? (
+              <EditListing key={selected.id} property={selected} currentUser={p.currentUser} userName={p.userName} onSaved={p.onListingEdited} />
             ) : p.loading ? <p className="text-muted">İlan yükleniyor…</p> : notFound}
           </div>
         </>

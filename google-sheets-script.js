@@ -56,6 +56,10 @@ var ADV_HEADERS = ['E-posta', 'Ad Soyad', 'Telefon', 'Rol', 'Aktif', 'Davet Kodu
 var SUB_HEADERS = ['E-posta', 'Endpoint', 'p256dh', 'auth', 'Cihaz', 'Tarih', 'Haberler'];
 // Emsaller: danışmanların elle girdiği piyasa emsalleri (ör. sahibinden'de görülen benzer ilanlar)
 var COMP_HEADERS = ['Emsal No', 'Tarih', 'İlan', 'Kaynak', 'Link', 'Kategori', 'Bölge', 'Mahalle', 'm²', 'Oda', 'Fiyat', 'Durum', 'Not', 'Ekleyen', 'E-posta'];
+// İlan düzenleme ekranında değiştirilebilen sütunlar (fiyat ayrı işlemle, danışman yalnızca yöneticide)
+var EDIT_FIELDS = ['İlan Başlığı', 'Kategori', 'm²', 'Açıklama', 'Görsel URL', 'Bölge', 'Mahalle', 'Oda Sayısı', 'Kat', 'Bina Yaşı', 'Isınma', 'Özellikler', 'Sahibinden Linki', 'Danışmanın Telefon Numarası', 'İmar Durumu', 'Ada/Parsel'];
+// İlan fotoğrafları bu Drive klasörüne kaydedilir (linki olan herkes görüntüleyebilir)
+var PHOTO_FOLDER = 'Palmiye İlan Fotoğrafları';
 // Parsel ve imar kartında düzenlenebilen ilan sütunları
 var PARCEL_FIELDS = ['Ada/Parsel', 'Mahalle', 'İmar Durumu', 'TAKS', 'KAKS (Emsal)', 'Maks. Kat', 'İmar Notu'];
 
@@ -231,6 +235,156 @@ function foldName_(s) {
     .replace(/ı/g, 'i').replace(/ş/g, 's').replace(/ğ/g, 'g').replace(/ü/g, 'u').replace(/ö/g, 'o').replace(/ç/g, 'c')
     .replace(/\s+/g, ' ').trim();
 }
+// İlanın durumunu/fiyatını/bilgisini değiştirebilir mi: ilanın danışmanı veya yönetici
+function canManage_(g, ownerName) {
+  if (g.advisor && ADMIN_EMAILS.indexOf(g.advisor.email) !== -1) return { ok: true };
+  if (!g.advisor) return { ok: false, message: 'Bu işlem için kişisel hesabınızla giriş yapın.' };
+  if (foldName_(ownerName) === foldName_(g.advisor.name)) return { ok: true };
+  return { ok: false, message: 'Bu ilanda değişikliği yalnızca danışmanı (' + (ownerName || 'atanmamış') + ') ve yöneticiler yapabilir.' };
+}
+// Kalıcı ilan numarası: "İlan No" sütunu. Boş satırlara, eski sıra numarasıyla aynı (PLM-101 + sıra) numara verilir;
+// o numara başka satırda kullanılıyorsa en büyük numaradan devam edilir. Satır sırası değişse de numara satırla gider.
+function ilanNoAta_() {
+  var lock = LockService.getScriptLock();
+  if (!lock.tryLock(10000)) return 0;
+  try {
+    var sh = listingSheet_();
+    var map = headerMap_(sh, ['İlan No']);
+    var rows = readRows_(sh);
+    var used = {};
+    var max = 100;
+    var idx = 0;
+    var missing = [];
+    rows.forEach(function (r) {
+      var filled = Object.keys(r).some(function (k) { return k !== '_row' && k !== 'İlan No' && String(r[k]).trim(); });
+      if (!filled) return;
+      var expected = 101 + idx;
+      idx++;
+      var cur = String(r['İlan No'] || '').trim();
+      if (cur) {
+        used[cur] = true;
+        var n = parseInt(cur.replace(/\D/g, ''), 10);
+        if (n > max) max = n;
+      } else missing.push({ row: r._row, expected: expected });
+    });
+    missing.forEach(function (m) {
+      var id = 'PLM-' + m.expected;
+      if (used[id]) id = 'PLM-' + (max + 1);
+      var n = parseInt(id.replace(/\D/g, ''), 10);
+      if (n > max) max = n;
+      used[id] = true;
+      setCells_(sh, m.row, map, { 'İlan No': id });
+    });
+    return missing.length;
+  } finally {
+    lock.releaseLock();
+  }
+}
+// Bir kez çalıştırılır: mevcut ilanlara bugünkü numaralarıyla aynı kalıcı numarayı yazar
+function ilanNoKur() {
+  return ilanNoAta_();
+}
+
+function photoFolder_() {
+  var props = PropertiesService.getScriptProperties();
+  var id = props.getProperty('PHOTO_FOLDER_ID');
+  if (id) {
+    try { return DriveApp.getFolderById(id); } catch (e) { /* silinmişse yeniden açılır */ }
+  }
+  var folder = DriveApp.createFolder(PHOTO_FOLDER);
+  folder.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+  props.setProperty('PHOTO_FOLDER_ID', folder.getId());
+  return folder;
+}
+// data:image/jpeg;base64,... → Drive'da dosya → görüntülenebilir link
+function savePhoto_(dataUrl, label) {
+  var m = String(dataUrl || '').match(/^data:(image\/(?:jpeg|png|webp));base64,(.+)$/);
+  if (!m) throw new Error('Geçersiz fotoğraf');
+  var bytes = Utilities.base64Decode(m[2]);
+  if (bytes.length > 6 * 1024 * 1024) throw new Error('Fotoğraf çok büyük');
+  var ext = m[1] === 'image/png' ? 'png' : m[1] === 'image/webp' ? 'webp' : 'jpg';
+  var name = (label || 'ilan') + '-' + Utilities.formatDate(new Date(), TZ, 'yyyyMMdd-HHmmss') + '-' + Math.random().toString(36).slice(2, 7) + '.' + ext;
+  var file = photoFolder_().createFile(Utilities.newBlob(bytes, m[1], name));
+  file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+  return 'https://lh3.googleusercontent.com/d/' + file.getId();
+}
+
+// Bir kez çalıştırılır: Sheet'e metin (base64) olarak yazılmış eski fotoğrafları Drive'a taşır, hücreye link yazar
+function fotolariDriveTasi() {
+  var sh = listingSheet_();
+  var map = headerMap_(sh, ['Görsel URL']);
+  var moved = 0;
+  readRows_(sh).forEach(function (r) {
+    var raw = String(r['Görsel URL'] || '');
+    if (raw.indexOf('data:') === -1) return;
+    var urls = raw.split('|||').map(function (u) {
+      u = u.trim();
+      if (u.indexOf('data:') !== 0) return u;
+      moved++;
+      return savePhoto_(u, 'tasinan');
+    }).filter(Boolean);
+    setCells_(sh, r._row, map, { 'Görsel URL': urls.join('|||') });
+  });
+  return moved;
+}
+
+// İlan başlığı değişince ona bağlı kayıtlar (mal sahibi, geçmiş, emsal) yeni başlığa taşınır
+function renameTitle_(oldTitle, newTitle) {
+  [['Mal Sahipleri', 'İlan Başlığı'], ['Hareketler', 'İlan'], ['Emsaller', 'İlan']].forEach(function (pair) {
+    var sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(pair[0]);
+    if (!sh || sh.getLastRow() < 2) return;
+    var head = sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0].map(function (h) { return String(h).trim(); });
+    var col = head.indexOf(pair[1]) + 1;
+    if (!col) return;
+    var range = sh.getRange(2, col, sh.getLastRow() - 1, 1);
+    var vals = range.getValues();
+    var changed = false;
+    vals.forEach(function (v) {
+      if (String(v[0]).trim() === String(oldTitle).trim()) { v[0] = newTitle; changed = true; }
+    });
+    if (changed) range.setValues(vals);
+  });
+}
+
+// Saatlik: eklendikten 24 saat sonra hâlâ fotoğrafsız olan aktif ilanlar için ilanı ekleyene bir kez bildirim
+function fotoHatirlat() {
+  var sh = listingSheet_();
+  var map = headerMap_(sh, ['Foto Hatırlatma']);
+  var nowMs = new Date().getTime();
+  readRows_(sh).forEach(function (r) {
+    if (String(r['Durum'] || '').trim() !== 'Aktif') return;
+    if (String(r['Görsel URL'] || '').trim()) return;
+    if (String(r['Foto Hatırlatma'] || '').trim()) return;
+    var m = String(r['Eklenme Tarihi'] || '').match(/(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})/);
+    if (!m) return;
+    var added = new Date(+m[1], +m[2] - 1, +m[3], +m[4], +m[5]).getTime();
+    var hours = (nowMs - added) / 3600000;
+    if (hours < 24 || hours > 24 * 7) return;
+    var email = String(r['Ekleyen'] || '').trim();
+    if (!email) {
+      var adv = advisorByName_(r['Danışman Bilgileri']);
+      email = adv ? adv.email : '';
+    }
+    if (email) {
+      sendPush_([email], false, {
+        title: 'İlanına fotoğraf ekle',
+        body: (r['İlan Başlığı'] || 'İlanın') + ' hâlâ fotoğrafsız. Fotoğraflı ilanlar çok daha fazla ilgi görür.',
+        url: r['İlan No'] ? '/#/duzenle/' + encodeURIComponent(r['İlan No']) : '/#/benim',
+        tag: 'photo-' + (r['İlan No'] || r._row),
+      });
+    }
+    setCells_(sh, r._row, map, { 'Foto Hatırlatma': now_() });
+  });
+}
+// Bir kez çalıştırılır: fotoHatirlat'ı saatte bir çalıştıran zamanlayıcıyı kurar
+function fotoHatirlatmaKur() {
+  ScriptApp.getProjectTriggers().forEach(function (t) {
+    if (t.getHandlerFunction() === 'fotoHatirlat') ScriptApp.deleteTrigger(t);
+  });
+  ScriptApp.newTrigger('fotoHatirlat').timeBased().everyHours(1).create();
+  return 'kuruldu';
+}
+
 function kindOf_(category) {
   return String(category || '').replace(/satılık|kiralık/gi, '').trim();
 }
@@ -830,7 +984,9 @@ function doPost(e) {
       var listing = data.data;
       listing['Eklenme Tarihi'] = now_();
       listing['Son Güncelleme'] = now_();
+      listing['Ekleyen'] = g.advisor ? g.advisor.email : who;
       appendObject_(sh, listing);
+      ilanNoAta_();
       if (data.owner && (data.owner['Mal Sahibi'] || data.owner['Telefon'])) {
         var owner = data.owner;
         owner['İlan Başlığı'] = listing['İlan Başlığı'];
@@ -864,15 +1020,11 @@ function doPost(e) {
       if (row < 0) return json_({ success: false, message: 'İlan bulunamadı' });
 
       // Durum (pasif, satıldı, silindi, aktife alma) yalnızca ilanın danışmanı ve yöneticiler tarafından değiştirilir
-      if (data.action === 'updateStatus' || data.action === 'recordSale') {
-        var adminStatus = !!g.advisor && ADMIN_EMAILS.indexOf(g.advisor.email) !== -1;
-        if (!adminStatus) {
-          if (!g.advisor) return json_({ success: false, message: 'İlan durumunu değiştirmek için kişisel hesabınızla giriş yapın.' });
-          var ownerName = map['Danışman Bilgileri'] ? sh.getRange(row, map['Danışman Bilgileri']).getDisplayValue() : '';
-          if (foldName_(ownerName) !== foldName_(g.advisor.name)) {
-            return json_({ success: false, message: 'Bu ilanın durumunu yalnızca danışmanı (' + (ownerName || 'atanmamış') + ') ve yöneticiler değiştirebilir.' });
-          }
-        }
+      // Fiyat da yalnızca ilanın danışmanı ve yöneticilerce değiştirilir
+      if (data.action === 'updateStatus' || data.action === 'recordSale' || data.action === 'updatePrice') {
+        var ownerName = map['Danışman Bilgileri'] ? sh.getRange(row, map['Danışman Bilgileri']).getDisplayValue() : '';
+        var allowed = canManage_(g, ownerName);
+        if (!allowed.ok) return json_({ success: false, message: allowed.message });
       }
 
       if (data.action === 'updateStatus') {
@@ -963,6 +1115,46 @@ function doPost(e) {
       if (row < 0) appendObject_(sh, ownerObj);
       else setCells_(sh, row, map, ownerObj);
       log_(who, 'Ofis içi bilgi güncellendi', data.title, '');
+      return json_({ success: true });
+    }
+
+    // Fotoğraf yükleme: Drive klasörüne kaydedilir, Sheet'e yalnızca link yazılır
+    if (data.action === 'uploadPhoto') {
+      if (!g.advisor) return json_({ success: false, message: 'Fotoğraf yüklemek için kişisel hesabınızla giriş yapın.' });
+      return json_({ success: true, url: savePhoto_(data.data, 'ilan') });
+    }
+
+    // İlan düzenleme: yalnızca ilanın danışmanı ve yöneticiler
+    if (data.action === 'updateListing') {
+      sh = listingSheet_();
+      map = headerMap_(sh, []);
+      row = findRowByTitle_(sh, map, data.title);
+      if (row < 0) return json_({ success: false, message: 'İlan bulunamadı' });
+      var ownerNow = map['Danışman Bilgileri'] ? sh.getRange(row, map['Danışman Bilgileri']).getDisplayValue() : '';
+      var can = canManage_(g, ownerNow);
+      if (!can.ok) return json_({ success: false, message: can.message });
+      var ef = data.fields || {};
+      var edit = {};
+      EDIT_FIELDS.forEach(function (k) {
+        if (ef[k] === undefined || ef[k] === null) return;
+        var v = String(ef[k]);
+        edit[k] = k === 'Görsel URL' ? v : v.trim().slice(0, k === 'Açıklama' ? 5000 : 300);
+      });
+      var editorIsAdmin = !!g.advisor && ADMIN_EMAILS.indexOf(g.advisor.email) !== -1;
+      if (editorIsAdmin && ef['Danışman Bilgileri'] !== undefined) edit['Danışman Bilgileri'] = String(ef['Danışman Bilgileri']).trim().slice(0, 100);
+      var newTitle = edit['İlan Başlığı'];
+      if (newTitle !== undefined) {
+        if (!newTitle) return json_({ success: false, message: 'Başlık boş olamaz.' });
+        if (newTitle !== String(data.title).trim() && findRowByTitle_(sh, map, newTitle) > 0) {
+          return json_({ success: false, message: 'Aynı başlıkta başka bir ilan var. Başlığı biraz değiştirin.' });
+        }
+      }
+      if (!Object.keys(edit).length) return json_({ success: false, message: 'Değişiklik yok' });
+      edit['Son Güncelleme'] = now_();
+      map = headerMap_(sh, Object.keys(edit));
+      setCells_(sh, row, map, edit);
+      if (newTitle && newTitle !== String(data.title).trim()) renameTitle_(data.title, newTitle);
+      log_(who, 'İlan düzenlendi', newTitle || data.title, Object.keys(edit).filter(function (k) { return k !== 'Son Güncelleme'; }).join(', ').slice(0, 200));
       return json_({ success: true });
     }
 
@@ -1123,7 +1315,14 @@ function doGet(e) {
       return json_({ success: true, rows: advisors_().filter(function (a) { return a.active; }).map(userPublic_) });
     }
     // İlanlar canlı okunur: yayınlanmış CSV'nin birkaç dakikalık önbelleği yüzünden eklenen/silinen ilan gidip gelmesin
-    if (p.action === 'listings') return json_({ success: true, rows: readRows_(listingSheet_()) });
+    if (p.action === 'listings') {
+      var lrows = readRows_(listingSheet_());
+      var needNo = lrows.some(function (r) {
+        return !String(r['İlan No'] || '').trim() && Object.keys(r).some(function (k) { return k !== '_row' && k !== 'İlan No' && String(r[k]).trim(); });
+      });
+      if (needNo && ilanNoAta_() > 0) lrows = readRows_(listingSheet_());
+      return json_({ success: true, rows: lrows });
+    }
     if (p.action === 'requests') {
       // Kapanan talepleri yalnızca yönetici hesapları görür
       var canSeeClosed = !!g.advisor && ADMIN_EMAILS.indexOf(g.advisor.email) !== -1;
